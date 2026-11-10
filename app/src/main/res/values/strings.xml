@@ -61,4 +61,8 @@
         https://github.com/FossifyOrg/Commons/tree/master/commons/src/main/res
     -->
     <string name="split_screen">Split screen</string>
+    <string name="storage_by_folders">Storage by folders</string>
+    <string name="storage_scanning">Scanning…</string>
+    <string name="storage_of">of %1$s</string>
+    <string name="files_in_root">Files in the root</string>
 </resources>
