@@ -13,6 +13,7 @@
         android:id="@+id/item_holder"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
+        android:minHeight="52dp"
         android:paddingStart="@dimen/small_margin"
         android:paddingEnd="@dimen/bigger_margin">
 
@@ -35,7 +36,7 @@
             android:paddingStart="@dimen/tiny_margin"
             android:textSize="@dimen/normal_text_size"
             app:layout_constraintBottom_toTopOf="@+id/item_details"
-            app:layout_constraintEnd_toEndOf="parent"
+            app:layout_constraintEnd_toStartOf="@+id/item_date"
             app:layout_constraintStart_toEndOf="@id/item_icon"
             app:layout_constraintTop_toTopOf="parent"
             app:layout_constraintVertical_bias="0.5"
@@ -47,6 +48,7 @@
             android:layout_width="0dp"
             android:layout_height="wrap_content"
             android:alpha="0.6"
+            android:maxLines="1"
             android:paddingStart="@dimen/tiny_margin"
             android:textSize="@dimen/smaller_text_size"
             app:layout_constraintBottom_toBottomOf="parent"
@@ -54,19 +56,20 @@
             app:layout_constraintStart_toEndOf="@id/item_icon"
             app:layout_constraintTop_toBottomOf="@+id/item_name"
             app:layout_constraintVertical_bias="0.5"
-            tools:text="1 KB" />
+            tools:text="12 Nov 2026" />
 
         <TextView
             android:id="@+id/item_date"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:alpha="0.6"
+            android:layout_marginStart="@dimen/small_margin"
             android:gravity="end"
             android:textSize="@dimen/smaller_text_size"
-            app:layout_constraintBottom_toBottomOf="@+id/item_details"
+            android:textStyle="bold"
+            app:layout_constraintBottom_toBottomOf="parent"
             app:layout_constraintEnd_toEndOf="parent"
-            app:layout_constraintTop_toTopOf="@+id/item_details"
-            tools:text="1.1.1970" />
+            app:layout_constraintTop_toTopOf="parent"
+            tools:text="212 MB" />
 
     </androidx.constraintlayout.widget.ConstraintLayout>
 </FrameLayout>

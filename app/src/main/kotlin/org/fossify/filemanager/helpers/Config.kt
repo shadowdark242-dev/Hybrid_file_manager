@@ -72,6 +72,14 @@ class Config(context: Context) : BaseConfig(context) {
         get() = prefs.getBoolean(ENABLE_ROOT_ACCESS, false)
         set(enableRootAccess) = prefs.edit().putBoolean(ENABLE_ROOT_ACCESS, enableRootAccess).apply()
 
+    var wasCleanupTabAdded: Boolean
+        get() = prefs.getBoolean(WAS_CLEANUP_TAB_ADDED, false)
+        set(wasCleanupTabAdded) = prefs.edit().putBoolean(WAS_CLEANUP_TAB_ADDED, wasCleanupTabAdded).apply()
+
+    var conceptThemeApplied: Boolean
+        get() = prefs.getBoolean(CONCEPT_THEME_APPLIED, false)
+        set(conceptThemeApplied) = prefs.edit().putBoolean(CONCEPT_THEME_APPLIED, conceptThemeApplied).apply()
+
     var splitScreenEnabled: Boolean
         get() = prefs.getBoolean(SPLIT_SCREEN_ENABLED, false)
         set(splitScreenEnabled) = prefs.edit().putBoolean(SPLIT_SCREEN_ENABLED, splitScreenEnabled).apply()

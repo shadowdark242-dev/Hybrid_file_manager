@@ -25,7 +25,9 @@ import java.io.File
 class FolderUsageActivity : SimpleActivity() {
     private val binding by viewBinding(ActivityFolderUsageBinding::inflate)
 
-    private val root: File = Environment.getExternalStorageDirectory()
+    private val root: File by lazy {
+        File(intent.getStringExtra(EXTRA_PATH) ?: Environment.getExternalStorageDirectory().path)
+    }
     private val folderSizes = HashMap<String, Long>()
     private var looseFilesSize = 0L
     private var isScanning = true
@@ -206,6 +208,7 @@ class FolderUsageActivity : SimpleActivity() {
     private fun dp(value: Int) = (value * resources.displayMetrics.density).toInt()
 
     companion object {
+        const val EXTRA_PATH = "path"
         private const val MAX_ROWS = 30
     }
 }

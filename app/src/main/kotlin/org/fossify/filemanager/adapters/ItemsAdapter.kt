@@ -90,6 +90,7 @@ import org.fossify.commons.models.RadioItem
 import org.fossify.commons.views.MyRecyclerView
 import org.fossify.filemanager.R
 import org.fossify.filemanager.activities.MainActivity
+import org.fossify.filemanager.helpers.FOLDER_COLOR
 import org.fossify.filemanager.activities.SimpleActivity
 import org.fossify.filemanager.activities.SplashActivity
 import org.fossify.filemanager.databinding.ItemDirGridBinding
@@ -1080,10 +1081,10 @@ class ItemsAdapter(
                 )
 
                 itemDetails?.setTextColor(textColor)
-                itemDetails?.setTextSize(TypedValue.COMPLEX_UNIT_PX, fontSize)
+                itemDetails?.setTextSize(TypedValue.COMPLEX_UNIT_PX, smallerFontSize)
 
                 itemDate?.setTextColor(textColor)
-                itemDate?.setTextSize(TypedValue.COMPLEX_UNIT_PX, smallerFontSize)
+                itemDate?.setTextSize(TypedValue.COMPLEX_UNIT_PX, fontSize)
 
                 itemCheck?.beVisibleIf(isSelected)
                 if (isSelected) {
@@ -1100,11 +1101,16 @@ class ItemsAdapter(
                 if (listItem.isDirectory) {
                     itemIcon?.setImageDrawable(folderDrawable)
                     itemDetails?.text = getChildrenCnt(listItem)
-                    itemDate?.beGone()
+                    if (listItem.size > 0) {
+                        itemDate?.beVisible()
+                        itemDate?.text = listItem.size.formatSize()
+                    } else {
+                        itemDate?.beGone()
+                    }
                 } else {
-                    itemDetails?.text = listItem.size.formatSize()
+                    itemDetails?.text = listItem.modified.formatDate(activity, dateFormat, timeFormat)
                     itemDate?.beVisible()
-                    itemDate?.text = listItem.modified.formatDate(activity, dateFormat, timeFormat)
+                    itemDate?.text = listItem.size.formatSize()
 
                     val drawable = fileDrawables.getOrElse(
                         key = fileName.substringAfterLast(".").lowercase(Locale.getDefault()),
@@ -1167,8 +1173,7 @@ class ItemsAdapter(
 
     fun initDrawables() {
         folderDrawable =
-            resources.getColoredDrawableWithColor(R.drawable.ic_folder_vector, properPrimaryColor)
-        folderDrawable.alpha = 180
+            resources.getColoredDrawableWithColor(R.drawable.ic_folder_vector, FOLDER_COLOR)
         fileDrawable = resources.getDrawable(R.drawable.ic_file_generic)
         fileDrawables = getFilePlaceholderDrawables(activity)
     }

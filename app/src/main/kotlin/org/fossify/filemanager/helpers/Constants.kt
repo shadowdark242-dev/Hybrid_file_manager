@@ -22,6 +22,8 @@ const val FILE_LANDSCAPE_COLUMN_CNT = "file_landscape_column_cnt"
 const val DISPLAY_FILE_NAMES = "display_file_names"
 const val SHOW_TABS = "show_tabs"
 const val WAS_STORAGE_ANALYSIS_TAB_ADDED = "was_storage_analysis_tab_added"
+const val WAS_CLEANUP_TAB_ADDED = "was_cleanup_tab_added"
+const val CONCEPT_THEME_APPLIED = "concept_theme_applied"
 const val SPLIT_SCREEN_ENABLED = "split_screen_enabled"
 const val SECOND_PANE_PATH = "second_pane_path"
 
@@ -33,7 +35,9 @@ const val OPEN_AS_AUDIO = 3
 const val OPEN_AS_VIDEO = 4
 const val OPEN_AS_OTHER = 5
 
-const val ALL_TABS_MASK = TAB_FILES or TAB_RECENT_FILES or TAB_STORAGE_ANALYSIS
+const val TAB_CLEANUP = 8
+const val FOLDER_COLOR = 0xFFF0B64A.toInt()
+const val ALL_TABS_MASK = TAB_FILES or TAB_RECENT_FILES or TAB_STORAGE_ANALYSIS or TAB_CLEANUP
 
 const val IMAGES = "images"
 const val VIDEOS = "videos"

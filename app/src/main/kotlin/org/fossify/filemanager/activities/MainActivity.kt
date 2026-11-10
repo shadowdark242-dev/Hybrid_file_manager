@@ -16,6 +16,8 @@ import org.fossify.commons.dialogs.RadioGroupDialog
 import org.fossify.commons.extensions.appLaunched
 import org.fossify.commons.extensions.appLockManager
 import android.content.res.Configuration
+import org.fossify.filemanager.fragments.CleanupFragment
+import org.fossify.filemanager.helpers.TAB_CLEANUP
 import android.widget.LinearLayout
 import org.fossify.commons.extensions.beGone
 import org.fossify.commons.extensions.beGoneIf
@@ -113,6 +115,13 @@ class MainActivity : SimpleActivity() {
             }
         }
 
+        if (!config.wasCleanupTabAdded) {
+            config.wasCleanupTabAdded = true
+            if (config.showTabs and TAB_CLEANUP == 0) {
+                config.showTabs += TAB_CLEANUP
+            }
+        }
+
         storeStateVariables()
         setupTabs()
 
@@ -180,7 +189,7 @@ class MainActivity : SimpleActivity() {
         if (binding.mainMenu.isSearchOpen) {
             binding.mainMenu.closeSearch()
             return true
-        } else if (currentFragment is RecentsFragment || currentFragment is StorageFragment) {
+        } else if (currentFragment is RecentsFragment || currentFragment is StorageFragment || currentFragment is CleanupFragment) {
             return false
         } else if ((currentFragment as ItemsFragment).getBreadcrumbs().getItemCount() <= 1) {
             if (!wasBackJustPressed && config.pressBackTwice) {
@@ -211,24 +220,22 @@ class MainActivity : SimpleActivity() {
         binding.mainMenu.requireToolbar().menu.apply {
             findItem(R.id.split_screen).isVisible = currentFragment is ItemsFragment
             findItem(R.id.sort).isVisible = currentFragment is ItemsFragment
-            findItem(R.id.change_view_type).isVisible = currentFragment !is StorageFragment
+            findItem(R.id.change_view_type).isVisible = currentFragment !is StorageFragment && currentFragment !is CleanupFragment
 
             findItem(R.id.add_favorite).isVisible = currentFragment is ItemsFragment && !favorites.contains(currentFragment.currentPath)
             findItem(R.id.remove_favorite).isVisible = currentFragment is ItemsFragment && favorites.contains(currentFragment.currentPath)
             findItem(R.id.go_to_favorite).isVisible = currentFragment is ItemsFragment && favorites.isNotEmpty()
 
-            findItem(R.id.toggle_filename).isVisible = currentViewType == VIEW_TYPE_GRID && currentFragment !is StorageFragment
+            findItem(R.id.toggle_filename).isVisible = currentViewType == VIEW_TYPE_GRID && currentFragment is ItemsFragment
             findItem(R.id.go_home).isVisible = currentFragment is ItemsFragment && currentFragment.currentPath != config.homeFolder
             findItem(R.id.set_as_home).isVisible = currentFragment is ItemsFragment && currentFragment.currentPath != config.homeFolder
 
-            findItem(R.id.temporarily_show_hidden).isVisible = !config.shouldShowHidden() && currentFragment !is StorageFragment
-            findItem(R.id.stop_showing_hidden).isVisible = config.temporarilyShowHidden && currentFragment !is StorageFragment
+            findItem(R.id.temporarily_show_hidden).isVisible = !config.shouldShowHidden() && currentFragment !is StorageFragment && currentFragment !is CleanupFragment
+            findItem(R.id.stop_showing_hidden).isVisible = config.temporarilyShowHidden && currentFragment !is StorageFragment && currentFragment !is CleanupFragment
 
-            findItem(R.id.column_count).isVisible = currentViewType == VIEW_TYPE_GRID && currentFragment !is StorageFragment
+            findItem(R.id.column_count).isVisible = currentViewType == VIEW_TYPE_GRID && currentFragment is ItemsFragment
 
             findItem(R.id.more_apps_from_us).isVisible = resources.getBoolean(R.bool.is_google_play_build)
-            findItem(R.id.cleanup).isVisible = !isCreateDocumentIntent
-            findItem(R.id.folder_usage).isVisible = !isCreateDocumentIntent
             findItem(R.id.settings).isVisible = !isCreateDocumentIntent
             findItem(R.id.about).isVisible = !isCreateDocumentIntent
         }
@@ -269,8 +276,6 @@ class MainActivity : SimpleActivity() {
                     R.id.stop_showing_hidden -> tryToggleTemporarilyShowHidden()
                     R.id.column_count -> changeColumnCount()
                     R.id.more_apps_from_us -> launchMoreAppsFromUsIntent()
-                    R.id.cleanup -> startActivity(Intent(applicationContext, CleanupActivity::class.java))
-                    R.id.folder_usage -> startActivity(Intent(applicationContext, FolderUsageActivity::class.java))
                     R.id.settings -> launchSettings()
                     R.id.about -> launchAbout()
                     else -> return@setOnMenuItemClickListener false
@@ -395,6 +400,7 @@ class MainActivity : SimpleActivity() {
 
         if (isPickFileIntent) {
             mTabsToShow.remove(TAB_STORAGE_ANALYSIS)
+            mTabsToShow.remove(TAB_CLEANUP)
             if (mTabsToShow.none { it and config.showTabs != 0 }) {
                 config.showTabs = TAB_FILES
                 mStoredShowTabs = TAB_FILES
@@ -451,7 +457,8 @@ class MainActivity : SimpleActivity() {
         val drawableId = when (position) {
             0 -> R.drawable.ic_folder_vector
             1 -> R.drawable.ic_clock_vector
-            else -> R.drawable.ic_storage_vector
+            2 -> R.drawable.ic_storage_vector
+            else -> R.drawable.ic_cleanup_vector
         }
 
         return resources.getColoredDrawableWithColor(drawableId, getProperTextColor())
@@ -461,7 +468,8 @@ class MainActivity : SimpleActivity() {
         val stringId = when (position) {
             0 -> R.string.files_tab
             1 -> R.string.recents
-            else -> R.string.storage
+            2 -> R.string.storage
+            else -> R.string.cleanup
         }
 
         return resources.getString(stringId)
@@ -721,6 +729,10 @@ class MainActivity : SimpleActivity() {
             icons.add(R.drawable.ic_storage_vector)
         }
 
+        if (showTabs and TAB_CLEANUP != 0) {
+            icons.add(R.drawable.ic_cleanup_vector)
+        }
+
         return icons
     }
 
@@ -738,6 +750,10 @@ class MainActivity : SimpleActivity() {
 
         if (showTabs and TAB_STORAGE_ANALYSIS != 0) {
             icons.add(R.drawable.ic_storage_vector)
+        }
+
+        if (showTabs and TAB_CLEANUP != 0) {
+            icons.add(R.drawable.ic_cleanup_vector)
         }
 
         return icons
@@ -840,8 +856,9 @@ class MainActivity : SimpleActivity() {
 
     private fun getItemsFragment() = findViewById<ItemsFragment>(R.id.items_fragment)
     private fun getStorageFragment() = findViewById<StorageFragment>(R.id.storage_fragment)
+    private fun getCleanupFragment() = findViewById<CleanupFragment>(R.id.cleanup_fragment)
     private fun getAllFragments(): ArrayList<MyViewPagerFragment<*>?> =
-        arrayListOf(getItemsFragment(), getRecentsFragment(), getStorageFragment(), secondPane)
+        arrayListOf(getItemsFragment(), getRecentsFragment(), getStorageFragment(), getCleanupFragment(), secondPane)
 
     private fun getCurrentFragment(): MyViewPagerFragment<*>? {
         val showTabs = config.showTabs
@@ -858,10 +875,14 @@ class MainActivity : SimpleActivity() {
             fragments.add(getStorageFragment())
         }
 
+        if (showTabs and TAB_CLEANUP != 0) {
+            fragments.add(getCleanupFragment())
+        }
+
         return fragments.getOrNull(binding.mainViewPager.currentItem)
     }
 
-    private fun getTabsList() = arrayListOf(TAB_FILES, TAB_RECENT_FILES, TAB_STORAGE_ANALYSIS)
+    private fun getTabsList() = arrayListOf(TAB_FILES, TAB_RECENT_FILES, TAB_STORAGE_ANALYSIS, TAB_CLEANUP)
 
     private fun checkWhatsNewDialog() {
         arrayListOf<Release>().apply {

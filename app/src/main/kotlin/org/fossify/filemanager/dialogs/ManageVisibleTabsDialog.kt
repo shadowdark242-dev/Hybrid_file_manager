@@ -11,6 +11,7 @@ import org.fossify.filemanager.R
 import org.fossify.filemanager.databinding.DialogManageVisibleTabsBinding
 import org.fossify.filemanager.extensions.config
 import org.fossify.filemanager.helpers.ALL_TABS_MASK
+import org.fossify.filemanager.helpers.TAB_CLEANUP
 
 class ManageVisibleTabsDialog(val activity: BaseSimpleActivity) {
     private val binding = DialogManageVisibleTabsBinding.inflate(activity.layoutInflater)
@@ -47,6 +48,8 @@ class ManageVisibleTabsDialog(val activity: BaseSimpleActivity) {
         if (result == 0) {
             result = ALL_TABS_MASK
         }
+
+        result = result or TAB_CLEANUP
 
         activity.config.showTabs = result
     }

@@ -139,13 +139,6 @@
         </activity>
 
         <activity
-            android:name=".activities.CleanupActivity"
-            android:configChanges="orientation"
-            android:exported="false"
-            android:label="@string/cleanup"
-            android:parentActivityName=".activities.MainActivity" />
-
-        <activity
             android:name=".activities.FolderUsageActivity"
             android:configChanges="orientation"
             android:exported="false"

@@ -1,84 +1,116 @@
-package org.fossify.filemanager.activities
+package org.fossify.filemanager.fragments
 
+import android.content.Context
 import android.content.res.ColorStateList
 import android.graphics.Color
-import android.os.Bundle
+import android.graphics.Typeface
 import android.os.Environment
+import android.util.AttributeSet
 import android.view.View
 import android.widget.CheckBox
-import android.widget.LinearLayout
 import android.widget.TextView
 import org.fossify.commons.dialogs.ConfirmationDialog
 import org.fossify.commons.extensions.beVisibleIf
 import org.fossify.commons.extensions.formatSize
+import org.fossify.commons.extensions.getContrastColor
 import org.fossify.commons.extensions.getProperPrimaryColor
 import org.fossify.commons.extensions.getProperTextColor
 import org.fossify.commons.extensions.rescanPaths
 import org.fossify.commons.extensions.toast
-import org.fossify.commons.extensions.viewBinding
-import org.fossify.commons.helpers.NavigationIcon
 import org.fossify.commons.helpers.ensureBackgroundThread
 import org.fossify.filemanager.R
-import org.fossify.filemanager.databinding.ActivityCleanupBinding
+import org.fossify.filemanager.activities.SimpleActivity
+import org.fossify.filemanager.databinding.CleanupFragmentBinding
 import java.io.File
 import java.io.FileInputStream
 import java.security.MessageDigest
 import java.text.DateFormat
 import java.util.Date
 
-/** Finds duplicate files and empty folders in internal storage and deletes the ones the user selects. */
-class CleanupActivity : SimpleActivity() {
+/**
+ * The "Cleanup" tab: finds duplicate files and empty folders in internal storage and deletes the ones
+ * the user selects. Scanning starts only when the user asks for it.
+ */
+class CleanupFragment(context: Context, attributeSet: AttributeSet) :
+    MyViewPagerFragment<MyViewPagerFragment.CleanupInnerBinding>(context, attributeSet) {
+
     private class DuplicateFile(val file: File, var selected: Boolean)
     private class DuplicateGroup(val size: Long, val files: List<DuplicateFile>)
     private class EmptyFolder(val dir: File, var selected: Boolean)
 
-    private val binding by viewBinding(ActivityCleanupBinding::inflate)
+    private lateinit var binding: CleanupFragmentBinding
     private val root: File = Environment.getExternalStorageDirectory()
 
     private var groups = ArrayList<DuplicateGroup>()
     private var emptyFolders = ArrayList<EmptyFolder>()
     private var showingDuplicates = true
-    private var isScanning = true
+    private var isScanning = false
+    private var hasScanned = false
+    private var scanToken = 0
 
-    override fun onCreate(savedInstanceState: Bundle?) {
-        super.onCreate(savedInstanceState)
-        setContentView(binding.root)
-        binding.apply {
-            setupEdgeToEdge(padBottomSystem = listOf(cleanupScrollview))
-            setupMaterialScrollListener(cleanupScrollview, cleanupAppbar)
-            cleanupStatus.setTextColor(getProperTextColor())
-            cleanupTabDuplicates.setOnClickListener { selectTab(true) }
-            cleanupTabEmpty.setOnClickListener { selectTab(false) }
-            cleanupDeleteButton.setOnClickListener { confirmDelete() }
+    override fun onFinishInflate() {
+        super.onFinishInflate()
+        binding = CleanupFragmentBinding.bind(this)
+        innerBinding = CleanupInnerBinding(binding)
+    }
+
+    override fun setupFragment(activity: SimpleActivity) {
+        if (this.activity == null) {
+            this.activity = activity
+            binding.apply {
+                cleanupTabDuplicates.setOnClickListener { selectTab(true) }
+                cleanupTabEmpty.setOnClickListener { selectTab(false) }
+                cleanupScanButton.setOnClickListener { startScan() }
+                cleanupDeleteButton.setOnClickListener { confirmDelete() }
+            }
+            selectTab(true)
         }
-
-        selectTab(true)
-        startScan()
     }
 
-    override fun onResume() {
-        super.onResume()
-        setupTopAppBar(binding.cleanupAppbar, NavigationIcon.Arrow)
+    override fun onResume(textColor: Int) {
+        binding.cleanupStatus.setTextColor(textColor)
+        selectTab(showingDuplicates)
+        if (hasScanned) {
+            renderDuplicates()
+            renderEmptyFolders()
+        }
     }
+
+    override fun refreshFragment() {}
+
+    override fun searchQueryChanged(text: String) {}
 
     private fun selectTab(duplicates: Boolean) {
         showingDuplicates = duplicates
-        val primary = getProperPrimaryColor()
-        val text = getProperTextColor()
+        val primary = context.getProperPrimaryColor()
+        val contrast = primary.getContrastColor()
+        val text = context.getProperTextColor()
         binding.apply {
             cleanupTabDuplicates.setBackgroundColor(if (duplicates) primary else Color.TRANSPARENT)
-            cleanupTabDuplicates.setTextColor(if (duplicates) Color.BLACK else text)
+            cleanupTabDuplicates.setTextColor(if (duplicates) contrast else text)
             cleanupTabEmpty.setBackgroundColor(if (duplicates) Color.TRANSPARENT else primary)
-            cleanupTabEmpty.setTextColor(if (duplicates) text else Color.BLACK)
+            cleanupTabEmpty.setTextColor(if (duplicates) text else contrast)
+            cleanupScanButton.setTextColor(contrast)
+            cleanupScanButton.setBackgroundColor(primary)
             cleanupDuplicatesList.beVisibleIf(duplicates)
             cleanupEmptyList.beVisibleIf(!duplicates)
         }
         updateStatusAndButton()
     }
 
+    private fun isGone() = activity?.isDestroyed != false
+
     // region scanning
 
     private fun startScan() {
+        if (isScanning) {
+            return
+        }
+
+        isScanning = true
+        val token = ++scanToken
+        updateStatusAndButton()
+
         ensureBackgroundThread {
             val bySize = HashMap<Long, MutableList<File>>()
             collectFiles(bySize)
@@ -87,14 +119,19 @@ class CleanupActivity : SimpleActivity() {
             val foundEmpty = ArrayList<File>()
             collectEmptyFolders(root, foundEmpty)
 
-            if (isDestroyed) {
+            if (isGone()) {
                 return@ensureBackgroundThread
             }
 
-            runOnUiThread {
+            activity?.runOnUiThread {
+                if (token != scanToken) {
+                    return@runOnUiThread
+                }
+
                 groups = foundGroups
                 emptyFolders = ArrayList(foundEmpty.sortedBy { it.path }.map { EmptyFolder(it, true) })
                 isScanning = false
+                hasScanned = true
                 renderDuplicates()
                 renderEmptyFolders()
                 updateStatusAndButton()
@@ -106,7 +143,7 @@ class CleanupActivity : SimpleActivity() {
         val stack = ArrayDeque<File>()
         stack.add(root)
         while (stack.isNotEmpty()) {
-            if (isDestroyed) {
+            if (isGone()) {
                 return
             }
 
@@ -137,7 +174,7 @@ class CleanupActivity : SimpleActivity() {
 
             val byQuickHash = HashMap<String, MutableList<File>>()
             for (file in files) {
-                if (isDestroyed) {
+                if (isGone()) {
                     return result
                 }
                 hash(file, QUICK_HASH_BYTES)?.let { byQuickHash.getOrPut(it) { ArrayList() }.add(file) }
@@ -153,7 +190,7 @@ class CleanupActivity : SimpleActivity() {
                 } else {
                     val byFullHash = HashMap<String, MutableList<File>>()
                     for (file in candidates) {
-                        if (isDestroyed) {
+                        if (isGone()) {
                             return result
                         }
                         hash(file, Long.MAX_VALUE)?.let { byFullHash.getOrPut(it) { ArrayList() }.add(file) }
@@ -202,7 +239,7 @@ class CleanupActivity : SimpleActivity() {
      * Topmost empty folders are added to [out]; their empty children are covered by them.
      */
     private fun collectEmptyFolders(dir: File, out: MutableList<File>): Boolean {
-        if (isDestroyed) {
+        if (isGone()) {
             return false
         }
 
@@ -239,32 +276,33 @@ class CleanupActivity : SimpleActivity() {
     private fun renderDuplicates() {
         val list = binding.cleanupDuplicatesList
         list.removeAllViews()
-        val textColor = getProperTextColor()
+        val textColor = context.getProperTextColor()
+        val primary = context.getProperPrimaryColor()
         val dateFormat = DateFormat.getDateInstance(DateFormat.MEDIUM)
 
         for (group in groups) {
-            val header = TextView(this).apply {
-                text = getString(
+            val header = TextView(context).apply {
+                text = context.getString(
                     R.string.cleanup_group_header,
                     group.files.first().file.name,
                     group.size.formatSize(),
                     group.files.size
                 )
                 textSize = 15f
-                setTypeface(typeface, android.graphics.Typeface.BOLD)
+                setTypeface(typeface, Typeface.BOLD)
                 setTextColor(textColor)
                 setPadding(dp(16), dp(16), dp(16), dp(4))
             }
             list.addView(header)
 
             for (item in group.files) {
-                val box = CheckBox(this).apply {
+                val box = CheckBox(context).apply {
                     val relative = item.file.path.removePrefix(root.path).trimStart('/')
-                    val keepNote = if (item.selected) "" else " · " + getString(R.string.cleanup_keep)
+                    val keepNote = if (item.selected) "" else " · " + context.getString(R.string.cleanup_keep)
                     text = relative + "\n" + dateFormat.format(Date(item.file.lastModified())) + keepNote
                     textSize = 13f
                     setTextColor(textColor)
-                    buttonTintList = ColorStateList.valueOf(getProperPrimaryColor())
+                    buttonTintList = ColorStateList.valueOf(primary)
                     isChecked = item.selected
                     setPadding(dp(8), dp(4), dp(16), dp(4))
                 }
@@ -274,7 +312,7 @@ class CleanupActivity : SimpleActivity() {
                         item.selected = false
                     } else if (group.files.count { !it.selected } <= 1 && !item.selected) {
                         // never allow deleting every copy
-                        toast(R.string.cleanup_keep_one)
+                        context.toast(R.string.cleanup_keep_one)
                         box.isChecked = false
                         return@setOnCheckedChangeListener
                     } else {
@@ -290,13 +328,14 @@ class CleanupActivity : SimpleActivity() {
     private fun renderEmptyFolders() {
         val list = binding.cleanupEmptyList
         list.removeAllViews()
-        val textColor = getProperTextColor()
+        val textColor = context.getProperTextColor()
+        val primary = context.getProperPrimaryColor()
         for (folder in emptyFolders) {
-            val box = CheckBox(this).apply {
+            val box = CheckBox(context).apply {
                 text = folder.dir.path.removePrefix(root.path).trimStart('/')
                 textSize = 14f
                 setTextColor(textColor)
-                buttonTintList = ColorStateList.valueOf(getProperPrimaryColor())
+                buttonTintList = ColorStateList.valueOf(primary)
                 isChecked = folder.selected
                 setPadding(dp(8), dp(8), dp(16), dp(8))
                 setOnCheckedChangeListener { _, checked ->
@@ -309,22 +348,20 @@ class CleanupActivity : SimpleActivity() {
     }
 
     private fun updateStatusAndButton() {
-        val primary = getProperPrimaryColor()
-        binding.cleanupStatus.apply {
-            if (isScanning) {
-                text = getString(R.string.storage_scanning)
-                visibility = View.VISIBLE
-            } else {
-                val count = if (showingDuplicates) groups.size else emptyFolders.size
-                text = if (count == 0) {
-                    getString(R.string.cleanup_nothing_found)
-                } else if (showingDuplicates) {
-                    getString(R.string.cleanup_duplicates_found, groups.size, wastedBytes().formatSize())
-                } else {
-                    getString(R.string.cleanup_empty_found, emptyFolders.size)
-                }
-                visibility = View.VISIBLE
-            }
+        val primary = context.getProperPrimaryColor()
+        val contrast = primary.getContrastColor()
+
+        binding.cleanupStatus.text = when {
+            isScanning -> context.getString(R.string.storage_scanning)
+            !hasScanned -> context.getString(R.string.cleanup_intro)
+            (if (showingDuplicates) groups.size else emptyFolders.size) == 0 -> context.getString(R.string.cleanup_nothing_found)
+            showingDuplicates -> context.getString(R.string.cleanup_duplicates_found, groups.size, wastedBytes().formatSize())
+            else -> context.getString(R.string.cleanup_empty_found, emptyFolders.size)
+        }
+
+        binding.cleanupScanButton.apply {
+            beVisibleIf(!isScanning)
+            setText(if (hasScanned) R.string.cleanup_rescan else R.string.cleanup_scan)
         }
 
         val selectedCount: Int
@@ -332,18 +369,17 @@ class CleanupActivity : SimpleActivity() {
         if (showingDuplicates) {
             val selected = groups.flatMap { it.files }.filter { it.selected }
             selectedCount = selected.size
-            label = getString(R.string.cleanup_delete_selected_size, selected.size, selected.sumOf { it.file.length() }.formatSize())
+            label = context.getString(R.string.cleanup_delete_selected_size, selected.size, selected.sumOf { it.file.length() }.formatSize())
         } else {
             selectedCount = emptyFolders.count { it.selected }
-            label = getString(R.string.cleanup_delete_selected, selectedCount)
+            label = context.getString(R.string.cleanup_delete_selected, selectedCount)
         }
 
         binding.cleanupDeleteButton.apply {
+            visibility = if (hasScanned && !isScanning && selectedCount > 0) View.VISIBLE else View.GONE
             text = label
             setBackgroundColor(primary)
-            setTextColor(Color.BLACK)
-            alpha = if (selectedCount > 0 && !isScanning) 1f else 0.4f
-            isEnabled = selectedCount > 0 && !isScanning
+            setTextColor(contrast)
         }
     }
 
@@ -354,14 +390,14 @@ class CleanupActivity : SimpleActivity() {
     // region deleting
 
     private fun confirmDelete() {
+        val host = activity ?: return
         val message = if (showingDuplicates) {
-            val selected = groups.flatMap { it.files }.count { it.selected }
-            getString(R.string.cleanup_confirm_files, selected)
+            context.getString(R.string.cleanup_confirm_files, groups.flatMap { it.files }.count { it.selected })
         } else {
-            getString(R.string.cleanup_confirm_folders, emptyFolders.count { it.selected })
+            context.getString(R.string.cleanup_confirm_folders, emptyFolders.count { it.selected })
         }
 
-        ConfirmationDialog(this, message) {
+        ConfirmationDialog(host, message) {
             if (showingDuplicates) deleteSelectedDuplicates() else deleteSelectedFolders()
         }
     }
@@ -376,7 +412,7 @@ class CleanupActivity : SimpleActivity() {
                 }
             }
 
-            runOnUiThread {
+            activity?.runOnUiThread {
                 val deletedSet = deleted.toHashSet()
                 groups = ArrayList(
                     groups.mapNotNull { group ->
@@ -386,9 +422,9 @@ class CleanupActivity : SimpleActivity() {
                 )
                 renderDuplicates()
                 updateStatusAndButton()
-                toast(getString(R.string.cleanup_deleted, deleted.size))
+                context.toast(context.getString(R.string.cleanup_deleted, deleted.size))
             }
-            rescanPaths(ArrayList(deleted))
+            context.rescanPaths(ArrayList(deleted))
         }
     }
 
@@ -404,14 +440,14 @@ class CleanupActivity : SimpleActivity() {
                 }
             }
 
-            runOnUiThread {
+            activity?.runOnUiThread {
                 val deletedSet = deleted.toHashSet()
                 emptyFolders = ArrayList(emptyFolders.filter { it.dir.path !in deletedSet })
                 renderEmptyFolders()
                 updateStatusAndButton()
-                toast(getString(R.string.cleanup_deleted, deleted.size))
+                context.toast(context.getString(R.string.cleanup_deleted, deleted.size))
             }
-            rescanPaths(ArrayList(deleted))
+            context.rescanPaths(ArrayList(deleted))
         }
     }
 

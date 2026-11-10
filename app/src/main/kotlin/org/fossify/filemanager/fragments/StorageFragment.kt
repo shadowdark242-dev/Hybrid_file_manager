@@ -6,6 +6,9 @@ import android.app.usage.StorageStatsManager
 import android.content.ContentResolver
 import android.content.Context
 import android.content.Intent
+import android.os.Environment
+import org.fossify.commons.extensions.sdCardPath
+import org.fossify.filemanager.activities.FolderUsageActivity
 import android.os.Handler
 import android.os.Looper
 import android.os.storage.StorageManager
@@ -118,11 +121,16 @@ class StorageFragment(
                 }
 
                 freeSpaceHolder.setOnClickListener {
-                    try {
-                        val storageSettingsIntent = Intent(Settings.ACTION_INTERNAL_STORAGE_SETTINGS)
-                        activity.startActivity(storageSettingsIntent)
-                    } catch (e: Exception) {
-                        activity.showErrorToast(e)
+                    val volumePath = if (volumeName == PRIMARY_VOLUME_NAME) {
+                        Environment.getExternalStorageDirectory().path
+                    } else {
+                        activity.sdCardPath
+                    }
+
+                    if (volumePath.isNotEmpty()) {
+                        val intent = Intent(activity, FolderUsageActivity::class.java)
+                        intent.putExtra(FolderUsageActivity.EXTRA_PATH, volumePath)
+                        activity.startActivity(intent)
                     }
                 }
 

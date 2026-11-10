@@ -63,4 +63,7 @@
     <string name="cleanup_confirm_files">Удалить файлов: %1$d? Это нельзя отменить.</string>
     <string name="cleanup_confirm_folders">Удалить пустых папок: %1$d?</string>
     <string name="cleanup_deleted">Удалено: %1$d</string>
+    <string name="cleanup_scan">Сканировать</string>
+    <string name="cleanup_rescan">Сканировать заново</string>
+    <string name="cleanup_intro">Поиск дубликатов файлов и пустых папок во внутренней памяти.</string>
 </resources>

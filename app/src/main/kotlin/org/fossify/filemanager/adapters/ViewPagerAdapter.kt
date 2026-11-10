@@ -13,6 +13,7 @@ import org.fossify.filemanager.R
 import org.fossify.filemanager.activities.SimpleActivity
 import org.fossify.filemanager.extensions.config
 import org.fossify.filemanager.fragments.MyViewPagerFragment
+import org.fossify.filemanager.helpers.TAB_CLEANUP
 
 class ViewPagerAdapter(val activity: SimpleActivity, val tabsToShow: ArrayList<Int>) : PagerAdapter() {
     override fun instantiateItem(container: ViewGroup, position: Int): Any {
@@ -73,6 +74,10 @@ class ViewPagerAdapter(val activity: SimpleActivity, val tabsToShow: ArrayList<I
 
         if (showTabs and TAB_STORAGE_ANALYSIS != 0) {
             fragments.add(R.layout.storage_fragment)
+        }
+
+        if (showTabs and TAB_CLEANUP != 0) {
+            fragments.add(R.layout.cleanup_fragment)
         }
 
         return fragments[position]

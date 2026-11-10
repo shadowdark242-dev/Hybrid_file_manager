@@ -79,4 +79,7 @@
     <string name="cleanup_confirm_files">Delete %1$d files? This cannot be undone.</string>
     <string name="cleanup_confirm_folders">Delete %1$d empty folders?</string>
     <string name="cleanup_deleted">Deleted: %1$d</string>
+    <string name="cleanup_scan">Scan</string>
+    <string name="cleanup_rescan">Scan again</string>
+    <string name="cleanup_intro">Find duplicate files and empty folders in internal storage.</string>
 </resources>
