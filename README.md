@@ -6,9 +6,9 @@ tools for keeping storage tidy. It is a fork of
 
 ## Download
 
-The latest debug build is published automatically on every push:
+The latest build is published automatically on every push:
 
-**[HybridFileManager-debug.apk](https://github.com/shadowdark242-dev/Hybrid_file_manager/releases/download/latest/HybridFileManager-debug.apk)**
+**[HybridFileManager.apk](https://github.com/shadowdark242-dev/Hybrid_file_manager/releases/download/latest/HybridFileManager.apk)**
 
 Android 8.0+ is required. Allow installing from unknown sources when asked.
 
