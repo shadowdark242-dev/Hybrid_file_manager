@@ -3,6 +3,7 @@ package org.fossify.filemanager
 import com.github.ajalt.reprint.core.Reprint
 import org.fossify.commons.FossifyApp
 import org.fossify.filemanager.extensions.config
+import org.fossify.filemanager.helpers.applyHybridTheme
 
 class App : FossifyApp() {
     override val isAppLockFeatureAvailable = true
@@ -19,14 +20,7 @@ class App : FossifyApp() {
             return
         }
 
-        config.apply {
-            isSystemThemeEnabled = false
-            isGlobalThemeEnabled = false
-            backgroundColor = 0xFF0E1116.toInt()
-            textColor = 0xFFEDEFF4.toInt()
-            primaryColor = 0xFF6AA9FF.toInt()
-            accentColor = 0xFF6AA9FF.toInt()
-            conceptThemeApplied = true
-        }
+        applyHybridTheme(true)
+        config.conceptThemeApplied = true
     }
 }

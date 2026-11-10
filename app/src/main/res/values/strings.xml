@@ -83,4 +83,7 @@
     <string name="cleanup_rescan">Scan again</string>
     <string name="cleanup_intro">Find duplicate files and empty folders in the selected storage.</string>
     <string name="parent_folder">Up one level</string>
+    <string name="hybrid_theme">Hybrid theme</string>
+    <string name="hybrid_theme_dark">Hybrid dark</string>
+    <string name="hybrid_theme_light">Hybrid light</string>
 </resources>

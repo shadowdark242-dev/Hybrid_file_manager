@@ -119,7 +119,7 @@ class CleanupFragment(context: Context, attributeSet: AttributeSet) :
         cornerRadius = 24f * resources.displayMetrics.density
         setColor(fill)
         if (outlined) {
-            setStroke((1 * resources.displayMetrics.density).toInt(), (strokeSource and 0x00FFFFFF) or 0x55000000)
+            setStroke((2 * resources.displayMetrics.density).toInt(), (strokeSource and 0x00FFFFFF) or 0x99000000.toInt())
         }
     }
 

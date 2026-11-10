@@ -67,4 +67,7 @@
     <string name="cleanup_rescan">Сканировать заново</string>
     <string name="cleanup_intro">Поиск дубликатов файлов и пустых папок в выбранном хранилище.</string>
     <string name="parent_folder">На уровень выше</string>
+    <string name="hybrid_theme">Тема Hybrid</string>
+    <string name="hybrid_theme_dark">Hybrid тёмная</string>
+    <string name="hybrid_theme_light">Hybrid светлая</string>
 </resources>

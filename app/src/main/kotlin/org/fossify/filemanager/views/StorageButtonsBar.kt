@@ -85,7 +85,7 @@ class StorageButtonsBar(context: Context, attrs: AttributeSet) : HorizontalScrol
                     setColor(primary)
                 } else {
                     setColor(android.graphics.Color.TRANSPARENT)
-                    setStroke(dp(1), (text and 0x00FFFFFF) or 0x55000000)
+                    setStroke(dp(2), (text and 0x00FFFFFF) or 0x99000000.toInt())
                 }
             }
         }

@@ -1,5 +1,6 @@
 package org.fossify.filemanager.activities
 
+import org.fossify.filemanager.helpers.applyHybridTheme
 import android.content.Intent
 import android.os.Bundle
 import org.fossify.commons.dialogs.ChangeDateTimeFormatDialog
@@ -34,6 +35,7 @@ class SettingsActivity : SimpleActivity() {
         setupTopAppBar(binding.settingsAppbar, NavigationIcon.Arrow)
 
         setupCustomizeColors()
+        setupHybridTheme()
         setupUseEnglish()
         setupLanguage()
         setupManageFavorites()
@@ -62,6 +64,19 @@ class SettingsActivity : SimpleActivity() {
             ).forEach {
                 it.setTextColor(getProperPrimaryColor())
             }
+        }
+    }
+
+    private fun setupHybridTheme() {
+        binding.settingsHybridThemeHolder.setOnClickListener {
+            val names = arrayOf(getString(R.string.hybrid_theme_dark), getString(R.string.hybrid_theme_light))
+            android.app.AlertDialog.Builder(this)
+                .setTitle(R.string.hybrid_theme)
+                .setItems(names) { _, which ->
+                    applyHybridTheme(which == 0)
+                    recreate()
+                }
+                .show()
         }
     }
 
