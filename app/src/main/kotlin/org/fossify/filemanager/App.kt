@@ -20,12 +20,12 @@ class App : FossifyApp() {
         }
 
         config.apply {
-            isUsingSystemTheme = false
-            isUsingAutoTheme = false
-            isUsingSharedTheme = false
+            isSystemThemeEnabled = false
+            isGlobalThemeEnabled = false
             backgroundColor = 0xFF0E1116.toInt()
             textColor = 0xFFEDEFF4.toInt()
             primaryColor = 0xFF6AA9FF.toInt()
+            accentColor = 0xFF6AA9FF.toInt()
             conceptThemeApplied = true
         }
     }
