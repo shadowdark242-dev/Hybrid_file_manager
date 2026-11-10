@@ -35,7 +35,7 @@ Android 8.0+ is required. Allow installing from unknown sources when asked.
 The project builds with Gradle and JDK 21.
 
 ```
-./gradlew assembleFossDebug
+./gradlew assembleFossRelease
 ```
 
 GitHub Actions (`.github/workflows/build.yml`) runs the same command and attaches the APK to the
