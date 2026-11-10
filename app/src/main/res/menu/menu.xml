@@ -64,6 +64,10 @@
         android:title="@string/column_count"
         app:showAsAction="never" />
     <item
+        android:id="@+id/cleanup"
+        android:title="@string/cleanup"
+        app:showAsAction="never" />
+    <item
         android:id="@+id/folder_usage"
         android:title="@string/storage_by_folders"
         app:showAsAction="never" />

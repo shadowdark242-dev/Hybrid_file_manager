@@ -65,4 +65,18 @@
     <string name="storage_scanning">Scanning…</string>
     <string name="storage_of">of %1$s</string>
     <string name="files_in_root">Files in the root</string>
+    <string name="cleanup">Clean up</string>
+    <string name="cleanup_duplicates">Duplicates</string>
+    <string name="cleanup_empty_folders">Empty folders</string>
+    <string name="cleanup_group_header">%1$s · %2$s · %3$d copies</string>
+    <string name="cleanup_keep">keep</string>
+    <string name="cleanup_keep_one">At least one copy must stay</string>
+    <string name="cleanup_nothing_found">Nothing found</string>
+    <string name="cleanup_duplicates_found">Duplicate groups: %1$d. You can free up to %2$s</string>
+    <string name="cleanup_empty_found">Empty folders: %1$d</string>
+    <string name="cleanup_delete_selected_size">Delete selected: %1$d · %2$s</string>
+    <string name="cleanup_delete_selected">Delete selected: %1$d</string>
+    <string name="cleanup_confirm_files">Delete %1$d files? This cannot be undone.</string>
+    <string name="cleanup_confirm_folders">Delete %1$d empty folders?</string>
+    <string name="cleanup_deleted">Deleted: %1$d</string>
 </resources>

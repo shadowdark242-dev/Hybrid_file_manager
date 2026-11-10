@@ -49,4 +49,18 @@
     <string name="storage_scanning">Идёт подсчёт…</string>
     <string name="storage_of">из %1$s</string>
     <string name="files_in_root">Файлы в корне</string>
+    <string name="cleanup">Чистка</string>
+    <string name="cleanup_duplicates">Дубликаты</string>
+    <string name="cleanup_empty_folders">Пустые папки</string>
+    <string name="cleanup_group_header">%1$s · %2$s · копий: %3$d</string>
+    <string name="cleanup_keep">оставить</string>
+    <string name="cleanup_keep_one">Хотя бы одна копия должна остаться</string>
+    <string name="cleanup_nothing_found">Ничего не найдено</string>
+    <string name="cleanup_duplicates_found">Групп дубликатов: %1$d. Можно освободить до %2$s</string>
+    <string name="cleanup_empty_found">Пустых папок: %1$d</string>
+    <string name="cleanup_delete_selected_size">Удалить выбранное: %1$d · %2$s</string>
+    <string name="cleanup_delete_selected">Удалить выбранное: %1$d</string>
+    <string name="cleanup_confirm_files">Удалить файлов: %1$d? Это нельзя отменить.</string>
+    <string name="cleanup_confirm_folders">Удалить пустых папок: %1$d?</string>
+    <string name="cleanup_deleted">Удалено: %1$d</string>
 </resources>
