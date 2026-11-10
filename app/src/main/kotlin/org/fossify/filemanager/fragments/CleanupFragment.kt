@@ -16,6 +16,7 @@ import org.fossify.commons.extensions.getContrastColor
 import org.fossify.commons.extensions.getProperPrimaryColor
 import org.fossify.commons.extensions.getProperTextColor
 import org.fossify.commons.extensions.rescanPaths
+import org.fossify.commons.extensions.sdCardPath
 import org.fossify.commons.extensions.toast
 import org.fossify.commons.helpers.ensureBackgroundThread
 import org.fossify.filemanager.R
@@ -39,7 +40,9 @@ class CleanupFragment(context: Context, attributeSet: AttributeSet) :
     private class EmptyFolder(val dir: File, var selected: Boolean)
 
     private lateinit var binding: CleanupFragmentBinding
-    private val root: File = Environment.getExternalStorageDirectory()
+    private val internalRoot: File = Environment.getExternalStorageDirectory()
+    private var sdRoot: File? = null
+    private var root: File = internalRoot
 
     private var groups = ArrayList<DuplicateGroup>()
     private var emptyFolders = ArrayList<EmptyFolder>()
@@ -62,6 +65,16 @@ class CleanupFragment(context: Context, attributeSet: AttributeSet) :
                 cleanupTabEmpty.setOnClickListener { selectTab(false) }
                 cleanupScanButton.setOnClickListener { startScan() }
                 cleanupDeleteButton.setOnClickListener { confirmDelete() }
+                cleanupVolumeInternal.setText(R.string.internal)
+                cleanupVolumeSd.setText(R.string.sd_card)
+                cleanupVolumeInternal.setOnClickListener { selectVolume(internalRoot) }
+                cleanupVolumeSd.setOnClickListener { sdRoot?.let { selectVolume(it) } }
+            }
+
+            val sdPath = activity.sdCardPath
+            if (sdPath.isNotEmpty() && File(sdPath).isDirectory) {
+                sdRoot = File(sdPath)
+                binding.cleanupVolumeRow.visibility = View.VISIBLE
             }
             selectTab(true)
         }
@@ -80,12 +93,31 @@ class CleanupFragment(context: Context, attributeSet: AttributeSet) :
 
     override fun searchQueryChanged(text: String) {}
 
+    private fun selectVolume(dir: File) {
+        if (isScanning || dir == root) {
+            return
+        }
+
+        root = dir
+        groups = ArrayList()
+        emptyFolders = ArrayList()
+        hasScanned = false
+        renderDuplicates()
+        renderEmptyFolders()
+        selectTab(showingDuplicates)
+    }
+
     private fun selectTab(duplicates: Boolean) {
         showingDuplicates = duplicates
         val primary = context.getProperPrimaryColor()
         val contrast = primary.getContrastColor()
         val text = context.getProperTextColor()
+        val internalSelected = root == internalRoot
         binding.apply {
+            cleanupVolumeInternal.setBackgroundColor(if (internalSelected) primary else Color.TRANSPARENT)
+            cleanupVolumeInternal.setTextColor(if (internalSelected) contrast else text)
+            cleanupVolumeSd.setBackgroundColor(if (internalSelected) Color.TRANSPARENT else primary)
+            cleanupVolumeSd.setTextColor(if (internalSelected) text else contrast)
             cleanupTabDuplicates.setBackgroundColor(if (duplicates) primary else Color.TRANSPARENT)
             cleanupTabDuplicates.setTextColor(if (duplicates) contrast else text)
             cleanupTabEmpty.setBackgroundColor(if (duplicates) Color.TRANSPARENT else primary)

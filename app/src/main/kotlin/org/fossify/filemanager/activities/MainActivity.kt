@@ -22,6 +22,7 @@ import android.widget.LinearLayout
 import org.fossify.commons.extensions.beGone
 import org.fossify.commons.extensions.beGoneIf
 import org.fossify.commons.extensions.beVisible
+import org.fossify.commons.extensions.beVisibleIf
 import org.fossify.commons.extensions.getProperPrimaryColor
 import org.fossify.commons.extensions.checkWhatsNew
 import org.fossify.commons.extensions.getBottomNavigationBackgroundColor
@@ -380,6 +381,7 @@ class MainActivity : SimpleActivity() {
                         (it as? ItemOperationsListener)?.finishActMode()
                     }
                     refreshMenuItems()
+                    updateSecondPaneVisibility()
                 }
             })
             currentItem = config.lastUsedViewPagerPage
@@ -797,8 +799,14 @@ class MainActivity : SimpleActivity() {
 
         binding.mainSplitDivider.setBackgroundColor(getProperPrimaryColor())
         applySplitOrientation()
-        binding.secondPaneHolder.beVisible()
-        binding.mainSplitDivider.beVisible()
+        updateSecondPaneVisibility()
+    }
+
+    /** The second pane belongs to the Files tab: it is hidden (not closed) while another tab is open. */
+    private fun updateSecondPaneVisibility() {
+        val visible = secondPane != null && getCurrentFragment() is ItemsFragment
+        binding.secondPaneHolder.beVisibleIf(visible)
+        binding.mainSplitDivider.beVisibleIf(visible)
     }
 
     private fun hideSecondPane() {
