@@ -4,7 +4,6 @@ import android.content.Context
 import android.content.res.ColorStateList
 import android.graphics.Color
 import android.graphics.Typeface
-import android.os.Environment
 import android.util.AttributeSet
 import android.view.View
 import android.widget.CheckBox
@@ -23,7 +22,7 @@ import org.fossify.filemanager.R
 import org.fossify.filemanager.activities.SimpleActivity
 import org.fossify.filemanager.databinding.CleanupFragmentBinding
 import org.fossify.filemanager.helpers.VOLUME_INTERNAL
-import org.fossify.filemanager.helpers.VOLUME_SD
+import org.fossify.commons.extensions.internalStoragePath
 import org.fossify.filemanager.helpers.getStorageButtonItems
 import java.io.File
 import java.io.FileInputStream
@@ -43,8 +42,9 @@ class CleanupFragment(context: Context, attributeSet: AttributeSet) :
     private class EmptyFolder(val dir: File, var selected: Boolean)
 
     private lateinit var binding: CleanupFragmentBinding
-    private val internalRoot: File = Environment.getExternalStorageDirectory()
+    private val internalRoot: File = File(context.internalStoragePath)
     private var root: File = internalRoot
+    private var volumeKey = VOLUME_INTERNAL
 
     private var groups = ArrayList<DuplicateGroup>()
     private var emptyFolders = ArrayList<EmptyFolder>()
@@ -94,18 +94,19 @@ class CleanupFragment(context: Context, attributeSet: AttributeSet) :
         binding.cleanupStorageBar.setItems(items) { item ->
             val dir = File(item.path)
             if (dir.isDirectory) {
-                selectVolume(dir)
+                selectVolume(dir, item.key)
             }
         }
-        binding.cleanupStorageBar.setSelected(if (root == internalRoot) VOLUME_INTERNAL else VOLUME_SD)
+        binding.cleanupStorageBar.setSelected(volumeKey)
     }
 
-    private fun selectVolume(dir: File) {
-        if (isScanning || dir == root) {
+    private fun selectVolume(dir: File, key: String) {
+        if (isScanning || key == volumeKey) {
             return
         }
 
         root = dir
+        volumeKey = key
         groups = ArrayList()
         emptyFolders = ArrayList()
         hasScanned = false
@@ -114,20 +115,28 @@ class CleanupFragment(context: Context, attributeSet: AttributeSet) :
         selectTab(showingDuplicates)
     }
 
+    private fun pill(fill: Int, strokeSource: Int, outlined: Boolean) = android.graphics.drawable.GradientDrawable().apply {
+        cornerRadius = 24f * resources.displayMetrics.density
+        setColor(fill)
+        if (outlined) {
+            setStroke((1 * resources.displayMetrics.density).toInt(), (strokeSource and 0x00FFFFFF) or 0x55000000)
+        }
+    }
+
     private fun selectTab(duplicates: Boolean) {
         showingDuplicates = duplicates
         val primary = context.getProperPrimaryColor()
         val contrast = primary.getContrastColor()
         val text = context.getProperTextColor()
         binding.apply {
-            cleanupStorageBar.setSelected(if (root == internalRoot) VOLUME_INTERNAL else VOLUME_SD)
+            cleanupStorageBar.setSelected(volumeKey)
             cleanupStorageBar.restyle()
-            cleanupTabDuplicates.setBackgroundColor(if (duplicates) primary else Color.TRANSPARENT)
+            cleanupTabDuplicates.background = pill(if (duplicates) primary else Color.TRANSPARENT, text, !duplicates)
             cleanupTabDuplicates.setTextColor(if (duplicates) contrast else text)
-            cleanupTabEmpty.setBackgroundColor(if (duplicates) Color.TRANSPARENT else primary)
+            cleanupTabEmpty.background = pill(if (duplicates) Color.TRANSPARENT else primary, text, duplicates)
             cleanupTabEmpty.setTextColor(if (duplicates) text else contrast)
             cleanupScanButton.setTextColor(contrast)
-            cleanupScanButton.setBackgroundColor(primary)
+            cleanupScanButton.background = pill(primary, text, false)
             cleanupDuplicatesList.beVisibleIf(duplicates)
             cleanupEmptyList.beVisibleIf(!duplicates)
         }
@@ -414,7 +423,7 @@ class CleanupFragment(context: Context, attributeSet: AttributeSet) :
         binding.cleanupDeleteButton.apply {
             visibility = if (hasScanned && !isScanning && selectedCount > 0) View.VISIBLE else View.GONE
             text = label
-            setBackgroundColor(primary)
+            background = pill(primary, contrast, false)
             setTextColor(contrast)
         }
     }

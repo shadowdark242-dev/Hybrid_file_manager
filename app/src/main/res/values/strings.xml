@@ -81,6 +81,6 @@
     <string name="cleanup_deleted">Deleted: %1$d</string>
     <string name="cleanup_scan">Scan</string>
     <string name="cleanup_rescan">Scan again</string>
-    <string name="cleanup_intro">Find duplicate files and empty folders in internal storage.</string>
+    <string name="cleanup_intro">Find duplicate files and empty folders in the selected storage.</string>
     <string name="parent_folder">Up one level</string>
 </resources>

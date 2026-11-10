@@ -65,6 +65,6 @@
     <string name="cleanup_deleted">Удалено: %1$d</string>
     <string name="cleanup_scan">Сканировать</string>
     <string name="cleanup_rescan">Сканировать заново</string>
-    <string name="cleanup_intro">Поиск дубликатов файлов и пустых папок во внутренней памяти.</string>
+    <string name="cleanup_intro">Поиск дубликатов файлов и пустых папок в выбранном хранилище.</string>
     <string name="parent_folder">На уровень выше</string>
 </resources>

@@ -157,6 +157,9 @@ class ItemsFragment(context: Context, attributeSet: AttributeSet) : MyViewPagerF
         activity?.runOnUiThread {
             binding.itemsSwipeRefresh.isRefreshing = false
             binding.breadcrumbs.setBreadcrumb(currentPath)
+            // The storage chip is replaced by the storage buttons above, so hide it
+            (binding.breadcrumbs.getChildAt(0) as? android.view.ViewGroup)?.getChildAt(0)?.visibility = android.view.View.GONE
+            binding.breadcrumbs.visibility = if (binding.breadcrumbs.getItemCount() > 1) android.view.View.VISIBLE else android.view.View.GONE
             updateVolumeButtons()
             if (!forceRefresh && items.hashCode() == storedItems.hashCode()) {
                 return@runOnUiThread
