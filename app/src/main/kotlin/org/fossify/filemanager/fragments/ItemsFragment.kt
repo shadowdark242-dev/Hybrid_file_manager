@@ -6,7 +6,6 @@ import android.os.Parcelable
 import android.util.AttributeSet
 import androidx.recyclerview.widget.GridLayoutManager
 import org.fossify.commons.activities.BaseSimpleActivity
-import org.fossify.commons.dialogs.StoragePickerDialog
 import org.fossify.commons.extensions.*
 import org.fossify.commons.helpers.*
 import org.fossify.commons.models.FileDirItem
@@ -26,6 +25,10 @@ import org.fossify.filemanager.helpers.RootHelpers
 import org.fossify.filemanager.interfaces.ItemOperationsListener
 import org.fossify.filemanager.models.ListItem
 import java.io.File
+import org.fossify.filemanager.helpers.VOLUME_OTG
+import org.fossify.filemanager.helpers.getStorageButtonItems
+import org.fossify.filemanager.helpers.getStorageKeyForPath
+import org.fossify.filemanager.views.StorageButtonsBar
 
 class ItemsFragment(context: Context, attributeSet: AttributeSet) : MyViewPagerFragment<MyViewPagerFragment.ItemsInnerBinding>(context, attributeSet),
     ItemOperationsListener,
@@ -83,7 +86,7 @@ class ItemsFragment(context: Context, attributeSet: AttributeSet) : MyViewPagerF
 
             itemsSwipeRefresh.isEnabled = lastSearchedText.isEmpty() && activity?.config?.enablePullToRefresh != false
         }
-        updateVolumeButtons()
+        setupVolumeButtons()
     }
 
     override fun setupFontSize() {
@@ -203,47 +206,32 @@ class ItemsFragment(context: Context, attributeSet: AttributeSet) : MyViewPagerF
         return ListItem(parent, org.fossify.filemanager.helpers.PARENT_DIR_NAME, true, 0, 0L, 0L, false, false)
     }
 
-    /** Internal / SD card buttons above the path; shown only when a card is present. */
+    /** Storage buttons above the path (internal, SD card, USB, root); shown when there is more than one storage. */
     private fun setupVolumeButtons() {
         val ctx = context ?: return
-        val sdPath = ctx.sdCardPath
-        if (sdPath.isEmpty() || !File(sdPath).isDirectory) {
-            return
-        }
-
-        binding.apply {
-            volumeButtonsRow.visibility = android.view.View.VISIBLE
-            volumeInternalButton.setText(R.string.internal)
-            volumeSdButton.setText(R.string.sd_card)
-            volumeInternalButton.setOnClickListener { openVolume(ctx.internalStoragePath) }
-            volumeSdButton.setOnClickListener { openVolume(sdPath) }
-        }
+        val items = ctx.getStorageButtonItems()
+        binding.storageBar.visibility = if (items.size >= 2) android.view.View.VISIBLE else android.view.View.GONE
+        binding.storageBar.setItems(items) { openVolume(it) }
         updateVolumeButtons()
     }
 
-    private fun openVolume(path: String) {
+    private fun openVolume(item: StorageButtonsBar.Item) {
         getRecyclerAdapter()?.finishActMode()
         (activity as? MainActivity)?.openedDirectory()
-        openPath(path)
+        if (item.key == VOLUME_OTG) {
+            activity?.handleOTGPermission {
+                if (it) {
+                    openPath(item.path)
+                }
+            }
+        } else {
+            openPath(item.path)
+        }
     }
 
     private fun updateVolumeButtons() {
         val ctx = context ?: return
-        if (binding.volumeButtonsRow.visibility != android.view.View.VISIBLE) {
-            return
-        }
-
-        val sd = ctx.sdCardPath.trimEnd('/')
-        val onSd = sd.isNotEmpty() && (currentPath == sd || currentPath.startsWith("$sd/"))
-        val primary = ctx.getProperPrimaryColor()
-        val contrast = primary.getContrastColor()
-        val text = ctx.getProperTextColor()
-        binding.apply {
-            volumeInternalButton.setBackgroundColor(if (onSd) android.graphics.Color.TRANSPARENT else primary)
-            volumeInternalButton.setTextColor(if (onSd) text else contrast)
-            volumeSdButton.setBackgroundColor(if (onSd) primary else android.graphics.Color.TRANSPARENT)
-            volumeSdButton.setTextColor(if (onSd) contrast else text)
-        }
+        binding.storageBar.setSelected(ctx.getStorageKeyForPath(currentPath))
     }
 
     private fun getScrollState() = getRecyclerLayoutManager().onSaveInstanceState()
@@ -595,15 +583,8 @@ class ItemsFragment(context: Context, attributeSet: AttributeSet) : MyViewPagerF
     }
 
     override fun breadcrumbClicked(id: Int) {
-        if (id == 0) {
-            StoragePickerDialog(activity as SimpleActivity, currentPath, context!!.config.enableRootAccess, true) {
-                getRecyclerAdapter()?.finishActMode()
-                openPath(it)
-            }
-        } else {
-            val item = binding.breadcrumbs.getItem(id)
-            openPath(item.path)
-        }
+        val item = binding.breadcrumbs.getItem(id)
+        openPath(item.path)
     }
 
     override fun refreshFragment() {

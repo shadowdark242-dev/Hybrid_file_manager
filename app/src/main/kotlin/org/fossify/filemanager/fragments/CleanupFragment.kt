@@ -22,6 +22,9 @@ import org.fossify.commons.helpers.ensureBackgroundThread
 import org.fossify.filemanager.R
 import org.fossify.filemanager.activities.SimpleActivity
 import org.fossify.filemanager.databinding.CleanupFragmentBinding
+import org.fossify.filemanager.helpers.VOLUME_INTERNAL
+import org.fossify.filemanager.helpers.VOLUME_SD
+import org.fossify.filemanager.helpers.getStorageButtonItems
 import java.io.File
 import java.io.FileInputStream
 import java.security.MessageDigest
@@ -41,7 +44,6 @@ class CleanupFragment(context: Context, attributeSet: AttributeSet) :
 
     private lateinit var binding: CleanupFragmentBinding
     private val internalRoot: File = Environment.getExternalStorageDirectory()
-    private var sdRoot: File? = null
     private var root: File = internalRoot
 
     private var groups = ArrayList<DuplicateGroup>()
@@ -65,17 +67,9 @@ class CleanupFragment(context: Context, attributeSet: AttributeSet) :
                 cleanupTabEmpty.setOnClickListener { selectTab(false) }
                 cleanupScanButton.setOnClickListener { startScan() }
                 cleanupDeleteButton.setOnClickListener { confirmDelete() }
-                cleanupVolumeInternal.setText(R.string.internal)
-                cleanupVolumeSd.setText(R.string.sd_card)
-                cleanupVolumeInternal.setOnClickListener { selectVolume(internalRoot) }
-                cleanupVolumeSd.setOnClickListener { sdRoot?.let { selectVolume(it) } }
             }
 
-            val sdPath = activity.sdCardPath
-            if (sdPath.isNotEmpty() && File(sdPath).isDirectory) {
-                sdRoot = File(sdPath)
-                binding.cleanupVolumeRow.visibility = View.VISIBLE
-            }
+            setupStorageBar()
             selectTab(true)
         }
     }
@@ -92,6 +86,19 @@ class CleanupFragment(context: Context, attributeSet: AttributeSet) :
     override fun refreshFragment() {}
 
     override fun searchQueryChanged(text: String) {}
+
+    /** Internal / SD card switch (USB drives can't be read as plain files, so they are left out). */
+    private fun setupStorageBar() {
+        val items = context.getStorageButtonItems(includeOtg = false, includeRoot = false)
+        binding.cleanupStorageBar.visibility = if (items.size >= 2) View.VISIBLE else View.GONE
+        binding.cleanupStorageBar.setItems(items) { item ->
+            val dir = File(item.path)
+            if (dir.isDirectory) {
+                selectVolume(dir)
+            }
+        }
+        binding.cleanupStorageBar.setSelected(if (root == internalRoot) VOLUME_INTERNAL else VOLUME_SD)
+    }
 
     private fun selectVolume(dir: File) {
         if (isScanning || dir == root) {
@@ -112,12 +119,9 @@ class CleanupFragment(context: Context, attributeSet: AttributeSet) :
         val primary = context.getProperPrimaryColor()
         val contrast = primary.getContrastColor()
         val text = context.getProperTextColor()
-        val internalSelected = root == internalRoot
         binding.apply {
-            cleanupVolumeInternal.setBackgroundColor(if (internalSelected) primary else Color.TRANSPARENT)
-            cleanupVolumeInternal.setTextColor(if (internalSelected) contrast else text)
-            cleanupVolumeSd.setBackgroundColor(if (internalSelected) Color.TRANSPARENT else primary)
-            cleanupVolumeSd.setTextColor(if (internalSelected) text else contrast)
+            cleanupStorageBar.setSelected(if (root == internalRoot) VOLUME_INTERNAL else VOLUME_SD)
+            cleanupStorageBar.restyle()
             cleanupTabDuplicates.setBackgroundColor(if (duplicates) primary else Color.TRANSPARENT)
             cleanupTabDuplicates.setTextColor(if (duplicates) contrast else text)
             cleanupTabEmpty.setBackgroundColor(if (duplicates) Color.TRANSPARENT else primary)
