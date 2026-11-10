@@ -1179,7 +1179,7 @@ class ItemsAdapter(
 
     fun initDrawables() {
         folderDrawable =
-            resources.getColoredDrawableWithColor(R.drawable.ic_folder_vector, FOLDER_COLOR)
+            resources.getColoredDrawableWithColor(R.drawable.ic_folder_plain_vector, FOLDER_COLOR)
         parentDrawable =
             resources.getColoredDrawableWithColor(R.drawable.ic_arrow_up_vector, FOLDER_COLOR)
         fileDrawable = resources.getDrawable(R.drawable.ic_file_generic)

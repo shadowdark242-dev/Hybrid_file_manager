@@ -455,7 +455,7 @@ class MainActivity : SimpleActivity() {
 
     private fun getTabIcon(position: Int): Drawable {
         val drawableId = when (position) {
-            0 -> R.drawable.ic_folder_vector
+            0 -> R.drawable.ic_folder_plain_vector
             1 -> R.drawable.ic_clock_vector
             2 -> R.drawable.ic_storage_vector
             else -> R.drawable.ic_cleanup_vector
@@ -718,7 +718,7 @@ class MainActivity : SimpleActivity() {
         val icons = ArrayList<Int>()
 
         if (showTabs and TAB_FILES != 0) {
-            icons.add(R.drawable.ic_folder_vector)
+            icons.add(R.drawable.ic_folder_plain_vector)
         }
 
         if (showTabs and TAB_RECENT_FILES != 0) {

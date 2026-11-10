@@ -29,7 +29,7 @@ fun Context.getStorageButtonItems(includeOtg: Boolean = true, includeRoot: Boole
     }
 
     if (includeRoot && config.enableRootAccess) {
-        items.add(StorageButtonsBar.Item(VOLUME_ROOT, "/", getString(R.string.root), R.drawable.ic_folder_vector))
+        items.add(StorageButtonsBar.Item(VOLUME_ROOT, "/", getString(R.string.root), R.drawable.ic_folder_plain_vector))
     }
     return items
 }
