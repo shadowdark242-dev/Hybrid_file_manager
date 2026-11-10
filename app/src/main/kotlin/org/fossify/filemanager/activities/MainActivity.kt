@@ -15,7 +15,12 @@ import me.grantland.widget.AutofitHelper
 import org.fossify.commons.dialogs.RadioGroupDialog
 import org.fossify.commons.extensions.appLaunched
 import org.fossify.commons.extensions.appLockManager
+import android.content.res.Configuration
+import android.widget.LinearLayout
+import org.fossify.commons.extensions.beGone
 import org.fossify.commons.extensions.beGoneIf
+import org.fossify.commons.extensions.beVisible
+import org.fossify.commons.extensions.getProperPrimaryColor
 import org.fossify.commons.extensions.checkWhatsNew
 import org.fossify.commons.extensions.getBottomNavigationBackgroundColor
 import org.fossify.commons.extensions.getColoredDrawableWithColor
@@ -86,6 +91,7 @@ class MainActivity : SimpleActivity() {
 
     private var wasBackJustPressed = false
     private var mTabsToShow = ArrayList<Int>()
+    private var secondPane: ItemsFragment? = null
 
     private var mStoredFontSize = 0
     private var mStoredDateFormat = ""
@@ -120,6 +126,8 @@ class MainActivity : SimpleActivity() {
             checkIfRootAvailable()
             checkInvalidFavorites()
         }
+
+        binding.mainSplit.post { restoreSecondPane() }
     }
 
     override fun onResume() {
@@ -159,6 +167,12 @@ class MainActivity : SimpleActivity() {
         super.onPause()
         storeStateVariables()
         config.lastUsedViewPagerPage = binding.mainViewPager.currentItem
+        secondPane?.let { config.secondPanePath = it.currentPath }
+    }
+
+    override fun onConfigurationChanged(newConfig: Configuration) {
+        super.onConfigurationChanged(newConfig)
+        applySplitOrientation()
     }
 
     override fun onBackPressedCompat(): Boolean {
@@ -195,6 +209,7 @@ class MainActivity : SimpleActivity() {
         val favorites = config.favorites
 
         binding.mainMenu.requireToolbar().menu.apply {
+            findItem(R.id.split_screen).isVisible = currentFragment is ItemsFragment
             findItem(R.id.sort).isVisible = currentFragment is ItemsFragment
             findItem(R.id.change_view_type).isVisible = currentFragment !is StorageFragment
 
@@ -239,6 +254,7 @@ class MainActivity : SimpleActivity() {
                 }
 
                 when (menuItem.itemId) {
+                    R.id.split_screen -> toggleSplitScreen()
                     R.id.go_home -> goHome()
                     R.id.go_to_favorite -> goToFavorite()
                     R.id.sort -> showSortingDialog()
@@ -336,6 +352,8 @@ class MainActivity : SimpleActivity() {
         if (refreshRecents) {
             getRecentsFragment()?.refreshFragment()
         }
+
+        restoreSecondPane()
     }
 
     private fun initFragments() {
@@ -722,10 +740,104 @@ class MainActivity : SimpleActivity() {
     }
 
     private fun getRecentsFragment() = findViewById<RecentsFragment>(R.id.recents_fragment)
+    private fun toggleSplitScreen() {
+        if (secondPane == null) {
+            val startPath = config.secondPanePath.ifEmpty { getItemsFragment()?.currentPath ?: config.homeFolder }
+            showSecondPane(startPath)
+        } else {
+            hideSecondPane()
+        }
+
+        config.splitScreenEnabled = secondPane != null
+    }
+
+    private fun restoreSecondPane() {
+        if (config.splitScreenEnabled && secondPane == null && hasStoragePermission()) {
+            showSecondPane(config.secondPanePath.ifEmpty { config.homeFolder })
+        }
+    }
+
+    private fun showSecondPane(path: String) {
+        val pane = layoutInflater.inflate(R.layout.items_fragment, binding.secondPaneHolder, false) as ItemsFragment
+        pane.id = R.id.items_fragment_secondary
+        binding.secondPaneHolder.addView(pane)
+        secondPane = pane
+
+        pane.apply {
+            isGetContentIntent = false
+            isGetRingtonePicker = false
+            isPickMultipleIntent = false
+            wantedMimeTypes = listOf("")
+            updateIsCreateDocumentIntent(false)
+            setupFragment(this@MainActivity)
+            hideFab()
+            onResume(getProperTextColor())
+            openPath(path)
+        }
+
+        binding.mainSplitDivider.setBackgroundColor(getProperPrimaryColor())
+        applySplitOrientation()
+        binding.secondPaneHolder.beVisible()
+        binding.mainSplitDivider.beVisible()
+    }
+
+    private fun hideSecondPane() {
+        secondPane?.let { config.secondPanePath = it.currentPath }
+        binding.secondPaneHolder.removeAllViews()
+        binding.secondPaneHolder.beGone()
+        binding.mainSplitDivider.beGone()
+        secondPane = null
+        applySplitOrientation()
+    }
+
+    private fun applySplitOrientation() {
+        val landscape = resources.configuration.orientation == Configuration.ORIENTATION_LANDSCAPE
+        binding.mainSplit.orientation = if (landscape) LinearLayout.HORIZONTAL else LinearLayout.VERTICAL
+        val matchParent = LinearLayout.LayoutParams.MATCH_PARENT
+        val paneParams = {
+            LinearLayout.LayoutParams(
+                if (landscape) 0 else matchParent,
+                if (landscape) matchParent else 0,
+                1f
+            )
+        }
+
+        binding.mainViewPager.layoutParams = paneParams()
+        binding.secondPaneHolder.layoutParams = paneParams()
+        val dividerSize = (2 * resources.displayMetrics.density).toInt()
+        binding.mainSplitDivider.layoutParams = LinearLayout.LayoutParams(
+            if (landscape) dividerSize else matchParent,
+            if (landscape) matchParent else dividerSize
+        )
+    }
+
+    /** Path of the opposite pane, or null when the screen is not split or the source isn't a files pane. */
+    fun getOtherPanePath(source: Any?): String? {
+        val second = secondPane ?: return null
+        val primary = getItemsFragment() ?: return null
+        val path = when {
+            source === second -> primary.currentPath
+            source === primary -> second.currentPath
+            else -> ""
+        }
+
+        return path.ifEmpty { null }
+    }
+
+    fun refreshOtherPane(source: Any?) {
+        val second = secondPane ?: return
+        val primary = getItemsFragment()
+        if (source === second) {
+            primary?.refreshFragment()
+        } else if (source === primary) {
+            second.refreshFragment()
+        }
+    }
+
     private fun getItemsFragment() = findViewById<ItemsFragment>(R.id.items_fragment)
     private fun getStorageFragment() = findViewById<StorageFragment>(R.id.storage_fragment)
     private fun getAllFragments(): ArrayList<MyViewPagerFragment<*>?> =
-        arrayListOf(getItemsFragment(), getRecentsFragment(), getStorageFragment())
+        arrayListOf(getItemsFragment(), getRecentsFragment(), getStorageFragment(), secondPane)
 
     private fun getCurrentFragment(): MyViewPagerFragment<*>? {
         val showTabs = config.showTabs

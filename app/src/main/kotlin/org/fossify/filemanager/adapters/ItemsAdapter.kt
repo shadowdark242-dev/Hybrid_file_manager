@@ -89,6 +89,7 @@ import org.fossify.commons.models.FileDirItem
 import org.fossify.commons.models.RadioItem
 import org.fossify.commons.views.MyRecyclerView
 import org.fossify.filemanager.R
+import org.fossify.filemanager.activities.MainActivity
 import org.fossify.filemanager.activities.SimpleActivity
 import org.fossify.filemanager.activities.SplashActivity
 import org.fossify.filemanager.databinding.ItemDirGridBinding
@@ -510,6 +511,13 @@ class ItemsAdapter(
         val files = getSelectedFileDirItems()
         val firstFile = files[0]
         val source = firstFile.getParentPath()
+
+        val otherPanePath = (activity as? MainActivity)?.getOtherPanePath(listener)
+        if (otherPanePath != null) {
+            performCopyMove(files, source, otherPanePath, isCopyOperation)
+            return
+        }
+
         FilePickerDialog(
             activity = activity,
             currPath = activity.getDefaultCopyDestinationPath(config.shouldShowHidden(), source),
@@ -520,56 +528,67 @@ class ItemsAdapter(
             showFavoritesButton = true
         ) {
             config.lastCopyPath = it
-            if (activity.isPathOnRoot(it) || activity.isPathOnRoot(firstFile.path)) {
-                copyMoveRootItems(files, it, isCopyOperation)
-            } else {
-                activity.copyMoveFilesTo(
-                    fileDirItems = files,
-                    source = source,
-                    destination = it,
-                    isCopyOperation = isCopyOperation,
-                    copyPhotoVideoOnly = false,
-                    copyHidden = config.shouldShowHidden()
-                ) {
-                    if (!isCopyOperation) {
-                        files.forEach { sourceFileDir ->
-                            val sourcePath = sourceFileDir.path
+            performCopyMove(files, source, it, isCopyOperation)
+        }
+    }
+
+    private fun performCopyMove(
+        files: ArrayList<FileDirItem>,
+        source: String,
+        destination: String,
+        isCopyOperation: Boolean
+    ) {
+        val firstFile = files[0]
+        if (activity.isPathOnRoot(destination) || activity.isPathOnRoot(firstFile.path)) {
+            copyMoveRootItems(files, destination, isCopyOperation)
+        } else {
+            activity.copyMoveFilesTo(
+                fileDirItems = files,
+                source = source,
+                destination = destination,
+                isCopyOperation = isCopyOperation,
+                copyPhotoVideoOnly = false,
+                copyHidden = config.shouldShowHidden()
+            ) {
+                (activity as? MainActivity)?.refreshOtherPane(listener)
+                if (!isCopyOperation) {
+                    files.forEach { sourceFileDir ->
+                        val sourcePath = sourceFileDir.path
+                        if (
+                            activity.isRestrictedSAFOnlyRoot(sourcePath)
+                            && activity.getDoesFilePathExist(sourcePath)
+                        ) {
+                            activity.deleteFile(sourceFileDir, true) {
+                                listener?.refreshFragment()
+                                activity.runOnUiThread {
+                                    finishActMode()
+                                }
+                            }
+                        } else {
+                            val sourceFile = File(sourcePath)
                             if (
-                                activity.isRestrictedSAFOnlyRoot(sourcePath)
-                                && activity.getDoesFilePathExist(sourcePath)
+                                activity.getDoesFilePathExist(source)
+                                && activity.getIsPathDirectory(source)
+                                && sourceFile.list()?.isEmpty() == true
+                                && sourceFile.getProperSize(true) == 0L
+                                && sourceFile.getFileCount(true) == 0
                             ) {
-                                activity.deleteFile(sourceFileDir, true) {
+                                val sourceFolder = sourceFile.toFileDirItem(activity)
+                                activity.deleteFile(sourceFolder, true) {
                                     listener?.refreshFragment()
                                     activity.runOnUiThread {
                                         finishActMode()
                                     }
                                 }
                             } else {
-                                val sourceFile = File(sourcePath)
-                                if (
-                                    activity.getDoesFilePathExist(source)
-                                    && activity.getIsPathDirectory(source)
-                                    && sourceFile.list()?.isEmpty() == true
-                                    && sourceFile.getProperSize(true) == 0L
-                                    && sourceFile.getFileCount(true) == 0
-                                ) {
-                                    val sourceFolder = sourceFile.toFileDirItem(activity)
-                                    activity.deleteFile(sourceFolder, true) {
-                                        listener?.refreshFragment()
-                                        activity.runOnUiThread {
-                                            finishActMode()
-                                        }
-                                    }
-                                } else {
-                                    listener?.refreshFragment()
-                                    finishActMode()
-                                }
+                                listener?.refreshFragment()
+                                finishActMode()
                             }
                         }
-                    } else {
-                        listener?.refreshFragment()
-                        finishActMode()
                     }
+                } else {
+                    listener?.refreshFragment()
+                    finishActMode()
                 }
             }
         }
@@ -592,6 +611,7 @@ class ItemsAdapter(
 
                 activity.runOnUiThread {
                     listener?.refreshFragment()
+                    (activity as? MainActivity)?.refreshOtherPane(listener)
                     finishActMode()
                 }
             }

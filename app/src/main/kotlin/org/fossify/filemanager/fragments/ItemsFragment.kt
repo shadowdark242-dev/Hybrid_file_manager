@@ -95,6 +95,10 @@ class ItemsFragment(context: Context, attributeSet: AttributeSet) : MyViewPagerF
         getRecyclerAdapter()?.updateDateTimeFormat()
     }
 
+    fun hideFab() {
+        binding.itemsFab.visibility = android.view.View.GONE
+    }
+
     override fun finishActMode() {
         getRecyclerAdapter()?.finishActMode()
     }

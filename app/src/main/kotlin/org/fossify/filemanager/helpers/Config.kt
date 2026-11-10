@@ -72,6 +72,14 @@ class Config(context: Context) : BaseConfig(context) {
         get() = prefs.getBoolean(ENABLE_ROOT_ACCESS, false)
         set(enableRootAccess) = prefs.edit().putBoolean(ENABLE_ROOT_ACCESS, enableRootAccess).apply()
 
+    var splitScreenEnabled: Boolean
+        get() = prefs.getBoolean(SPLIT_SCREEN_ENABLED, false)
+        set(splitScreenEnabled) = prefs.edit().putBoolean(SPLIT_SCREEN_ENABLED, splitScreenEnabled).apply()
+
+    var secondPanePath: String
+        get() = prefs.getString(SECOND_PANE_PATH, "")!!
+        set(secondPanePath) = prefs.edit().putString(SECOND_PANE_PATH, secondPanePath).apply()
+
     var editorTextZoom: Float
         get() = prefs.getFloat(EDITOR_TEXT_ZOOM, 1.2f)
         set(editorTextZoom) = prefs.edit().putFloat(EDITOR_TEXT_ZOOM, editorTextZoom).apply()

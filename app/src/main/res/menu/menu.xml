@@ -14,6 +14,11 @@
         android:title="@string/go_to_favorite"
         app:showAsAction="always" />
     <item
+        android:id="@+id/split_screen"
+        android:icon="@drawable/ic_split_vector"
+        android:title="@string/split_screen"
+        app:showAsAction="always" />
+    <item
         android:id="@+id/sort"
         android:icon="@drawable/ic_sort_vector"
         android:title="@string/sort_by"
