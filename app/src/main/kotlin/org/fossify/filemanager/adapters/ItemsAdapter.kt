@@ -135,6 +135,7 @@ class ItemsAdapter(
 
     private lateinit var fileDrawable: Drawable
     private lateinit var folderDrawable: Drawable
+    private lateinit var parentDrawable: Drawable
     private var fileDrawables = HashMap<String, Drawable>()
     private var currentItemsHash = listItems.hashCode()
     private var textToHighlight = ""
@@ -214,11 +215,11 @@ class ItemsAdapter(
     }
 
     override fun getSelectableItemCount(): Int {
-        return listItems.filter { !it.isSectionTitle && !it.isGridTypeDivider }.size
+        return listItems.filter { !it.isSectionTitle && !it.isGridTypeDivider && !it.isParentDir }.size
     }
 
     override fun getIsItemSelectable(position: Int): Boolean {
-        return !listItems[position].isSectionTitle && !listItems[position].isGridTypeDivider
+        return !listItems[position].isSectionTitle && !listItems[position].isGridTypeDivider && !listItems[position].isParentDir
     }
 
     override fun getItemSelectionKey(position: Int): Int? {
@@ -1098,7 +1099,11 @@ class ItemsAdapter(
                     itemName?.beVisible()
                 }
 
-                if (listItem.isDirectory) {
+                if (listItem.isParentDir) {
+                    itemIcon?.setImageDrawable(parentDrawable)
+                    itemDetails?.text = activity.getString(R.string.parent_folder)
+                    itemDate?.beGone()
+                } else if (listItem.isDirectory) {
                     itemIcon?.setImageDrawable(folderDrawable)
                     itemDetails?.text = getChildrenCnt(listItem)
                     if (listItem.size > 0) {
@@ -1174,6 +1179,8 @@ class ItemsAdapter(
     fun initDrawables() {
         folderDrawable =
             resources.getColoredDrawableWithColor(R.drawable.ic_folder_vector, FOLDER_COLOR)
+        parentDrawable =
+            resources.getColoredDrawableWithColor(R.drawable.ic_arrow_up_vector, FOLDER_COLOR)
         fileDrawable = resources.getDrawable(R.drawable.ic_file_generic)
         fileDrawables = getFilePlaceholderDrawables(activity)
     }

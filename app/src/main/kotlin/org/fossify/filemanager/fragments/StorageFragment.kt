@@ -89,9 +89,27 @@ class StorageFragment(
         }
 
         val volumeNames = activity.getAllVolumeNames()
+        val sideBySide = volumeNames.size > 1
+        binding.storageVolumesHolder.orientation = if (sideBySide) {
+            android.widget.LinearLayout.HORIZONTAL
+        } else {
+            android.widget.LinearLayout.VERTICAL
+        }
+
         volumeNames.forEach { volumeName ->
             val volumeBinding = ItemStorageVolumeBinding.inflate(activity.layoutInflater)
             volumes[volumeName] = volumeBinding
+            if (sideBySide) {
+                volumeBinding.root.layoutParams = android.widget.LinearLayout.LayoutParams(
+                    0,
+                    android.widget.LinearLayout.LayoutParams.WRAP_CONTENT,
+                    1f
+                )
+                volumeBinding.storageName.textSize = 16f
+                volumeBinding.freeSpaceValue.textSize = 26f
+                volumeBinding.freeSpaceLabel.textSize = 13f
+                volumeBinding.totalSpace.textSize = 12f
+            }
             volumeBinding.apply {
                 if (volumeName == PRIMARY_VOLUME_NAME) {
                     storageName.setText(R.string.internal)

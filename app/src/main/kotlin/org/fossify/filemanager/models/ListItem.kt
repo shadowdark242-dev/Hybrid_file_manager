@@ -6,4 +6,8 @@ import org.fossify.commons.models.FileDirItem
 data class ListItem(
     val mPath: String, val mName: String = "", var mIsDirectory: Boolean = false, var mChildren: Int = 0, var mSize: Long = 0L, var mModified: Long = 0L,
     var isSectionTitle: Boolean, val isGridTypeDivider: Boolean
-) : FileDirItem(mPath, mName, mIsDirectory, mChildren, mSize, mModified)
+) : FileDirItem(mPath, mName, mIsDirectory, mChildren, mSize, mModified) {
+    /** The ".." entry at the top of a folder that opens the parent folder. */
+    val isParentDir: Boolean
+        get() = mName == org.fossify.filemanager.helpers.PARENT_DIR_NAME
+}

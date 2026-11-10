@@ -135,6 +135,7 @@ class ItemsFragment(context: Context, attributeSet: AttributeSet) : MyViewPagerF
                 }
             }
 
+            getParentDirItem(currentPath)?.let { listItems.add(0, it) }
             itemsIgnoringSearch = listItems
             activity?.runOnUiThread {
                 (activity as? MainActivity)?.refreshMenuItems()
@@ -178,6 +179,25 @@ class ItemsFragment(context: Context, attributeSet: AttributeSet) : MyViewPagerF
 
             getRecyclerLayoutManager().onRestoreInstanceState(scrollStates[currentPath])
         }
+    }
+
+    /** The ".." entry for [path], or null at the top of a storage volume. */
+    private fun getParentDirItem(path: String): ListItem? {
+        val ctx = context ?: return null
+        val trimmed = path.trimEnd('/')
+        if (trimmed.isEmpty()) {
+            return null
+        }
+
+        val volumeRoots = listOf(ctx.internalStoragePath, ctx.sdCardPath, ctx.config.OTGPath)
+            .filter { it.isNotEmpty() }
+            .map { it.trimEnd('/') }
+        if (trimmed in volumeRoots) {
+            return null
+        }
+
+        val parent = File(trimmed).parent ?: return null
+        return ListItem(parent, org.fossify.filemanager.helpers.PARENT_DIR_NAME, true, 0, 0L, 0L, false, false)
     }
 
     private fun getScrollState() = getRecyclerLayoutManager().onSaveInstanceState()

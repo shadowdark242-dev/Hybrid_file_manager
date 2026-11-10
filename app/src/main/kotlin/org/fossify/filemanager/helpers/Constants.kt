@@ -36,6 +36,7 @@ const val OPEN_AS_VIDEO = 4
 const val OPEN_AS_OTHER = 5
 
 const val TAB_CLEANUP = 8
+const val PARENT_DIR_NAME = ".."
 const val FOLDER_COLOR = 0xFFF0B64A.toInt()
 const val ALL_TABS_MASK = TAB_FILES or TAB_RECENT_FILES or TAB_STORAGE_ANALYSIS or TAB_CLEANUP
 
