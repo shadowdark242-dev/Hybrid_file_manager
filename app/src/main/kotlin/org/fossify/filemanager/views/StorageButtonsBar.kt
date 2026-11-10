@@ -6,7 +6,6 @@ import android.util.AttributeSet
 import android.util.TypedValue
 import android.view.Gravity
 import android.view.ViewGroup
-import android.widget.HorizontalScrollView
 import android.widget.ImageView
 import android.widget.LinearLayout
 import android.widget.TextView
@@ -14,52 +13,67 @@ import org.fossify.commons.extensions.getContrastColor
 import org.fossify.commons.extensions.getProperPrimaryColor
 import org.fossify.commons.extensions.getProperTextColor
 
-/** A row of rounded storage buttons (internal, SD card, USB...). Scrolls sideways when there are many. */
-class StorageButtonsBar(context: Context, attrs: AttributeSet) : HorizontalScrollView(context, attrs) {
+/** Rounded storage buttons (internal, SD card, USB...), two per row; extra buttons wrap onto new rows. */
+class StorageButtonsBar(context: Context, attrs: AttributeSet) : LinearLayout(context, attrs) {
     class Item(val key: String, val path: String, val label: String, val iconRes: Int)
 
     private class ButtonViews(val item: Item, val root: LinearLayout, val icon: ImageView, val label: TextView)
 
-    private val row = LinearLayout(context).apply { orientation = LinearLayout.HORIZONTAL }
     private val buttons = ArrayList<ButtonViews>()
     private var selectedKey = ""
 
     init {
-        isHorizontalScrollBarEnabled = false
-        isFillViewport = true
-        clipToPadding = false
+        orientation = VERTICAL
         setPadding(dp(12), dp(8), dp(12), dp(4))
-        addView(row, LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT))
     }
 
     fun setItems(items: List<Item>, onPick: (Item) -> Unit) {
-        row.removeAllViews()
+        removeAllViews()
         buttons.clear()
-        items.forEachIndexed { index, item ->
-            val icon = ImageView(context).apply { setImageResource(item.iconRes) }
-            val label = TextView(context).apply {
-                text = item.label
-                maxLines = 1
-                setTextSize(TypedValue.COMPLEX_UNIT_SP, 14f)
-                setTypeface(typeface, android.graphics.Typeface.BOLD)
+        items.chunked(PER_ROW).forEachIndexed { rowIndex, chunk ->
+            val row = LinearLayout(context).apply { orientation = HORIZONTAL }
+            for (column in 0 until PER_ROW) {
+                val item = chunk.getOrNull(column)
+                val params = LayoutParams(0, dp(44), 1f)
+                if (column < PER_ROW - 1) {
+                    params.marginEnd = dp(8)
+                }
+
+                if (item == null) {
+                    row.addView(android.view.View(context), params)
+                } else {
+                    row.addView(createButton(item, onPick), params)
+                }
             }
-            val root = LinearLayout(context).apply {
-                orientation = LinearLayout.HORIZONTAL
-                gravity = Gravity.CENTER
-                minimumWidth = dp(96)
-                setPadding(dp(14), 0, dp(14), 0)
-                addView(icon, LinearLayout.LayoutParams(dp(20), dp(20)).apply { marginEnd = dp(8) })
-                addView(label, LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT))
-                setOnClickListener { onPick(item) }
+
+            val rowParams = LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT)
+            if (rowIndex > 0) {
+                rowParams.topMargin = dp(8)
             }
-            val params = LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, dp(44), 1f)
-            if (index < items.lastIndex) {
-                params.marginEnd = dp(8)
-            }
-            row.addView(root, params)
-            buttons.add(ButtonViews(item, root, icon, label))
+            addView(row, rowParams)
         }
         restyle()
+    }
+
+    private fun createButton(item: Item, onPick: (Item) -> Unit): LinearLayout {
+        val icon = ImageView(context).apply { setImageResource(item.iconRes) }
+        val label = TextView(context).apply {
+            text = item.label
+            maxLines = 1
+            ellipsize = android.text.TextUtils.TruncateAt.END
+            setTextSize(TypedValue.COMPLEX_UNIT_SP, 14f)
+            setTypeface(typeface, android.graphics.Typeface.BOLD)
+        }
+        val root = LinearLayout(context).apply {
+            orientation = HORIZONTAL
+            gravity = Gravity.CENTER
+            setPadding(dp(12), 0, dp(12), 0)
+            addView(icon, LayoutParams(dp(20), dp(20)).apply { marginEnd = dp(8) })
+            addView(label, LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT))
+            setOnClickListener { onPick(item) }
+        }
+        buttons.add(ButtonViews(item, root, icon, label))
+        return root
     }
 
     fun setSelected(key: String) {
@@ -89,6 +103,10 @@ class StorageButtonsBar(context: Context, attrs: AttributeSet) : HorizontalScrol
                 }
             }
         }
+    }
+
+    private companion object {
+        const val PER_ROW = 2
     }
 
     private fun dp(value: Int) = (value * resources.displayMetrics.density).toInt()
