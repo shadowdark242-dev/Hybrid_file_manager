@@ -59,6 +59,7 @@ class ItemsFragment(context: Context, attributeSet: AttributeSet) : MyViewPagerF
                     }
                 }
             }
+            setupVolumeButtons()
         }
     }
 
@@ -82,6 +83,7 @@ class ItemsFragment(context: Context, attributeSet: AttributeSet) : MyViewPagerF
 
             itemsSwipeRefresh.isEnabled = lastSearchedText.isEmpty() && activity?.config?.enablePullToRefresh != false
         }
+        updateVolumeButtons()
     }
 
     override fun setupFontSize() {
@@ -152,6 +154,7 @@ class ItemsFragment(context: Context, attributeSet: AttributeSet) : MyViewPagerF
         activity?.runOnUiThread {
             binding.itemsSwipeRefresh.isRefreshing = false
             binding.breadcrumbs.setBreadcrumb(currentPath)
+            updateVolumeButtons()
             if (!forceRefresh && items.hashCode() == storedItems.hashCode()) {
                 return@runOnUiThread
             }
@@ -198,6 +201,49 @@ class ItemsFragment(context: Context, attributeSet: AttributeSet) : MyViewPagerF
 
         val parent = File(trimmed).parent ?: return null
         return ListItem(parent, org.fossify.filemanager.helpers.PARENT_DIR_NAME, true, 0, 0L, 0L, false, false)
+    }
+
+    /** Internal / SD card buttons above the path; shown only when a card is present. */
+    private fun setupVolumeButtons() {
+        val ctx = context ?: return
+        val sdPath = ctx.sdCardPath
+        if (sdPath.isEmpty() || !File(sdPath).isDirectory) {
+            return
+        }
+
+        binding.apply {
+            volumeButtonsRow.visibility = android.view.View.VISIBLE
+            volumeInternalButton.setText(R.string.internal)
+            volumeSdButton.setText(R.string.sd_card)
+            volumeInternalButton.setOnClickListener { openVolume(ctx.internalStoragePath) }
+            volumeSdButton.setOnClickListener { openVolume(sdPath) }
+        }
+        updateVolumeButtons()
+    }
+
+    private fun openVolume(path: String) {
+        getRecyclerAdapter()?.finishActMode()
+        (activity as? MainActivity)?.openedDirectory()
+        openPath(path)
+    }
+
+    private fun updateVolumeButtons() {
+        val ctx = context ?: return
+        if (binding.volumeButtonsRow.visibility != android.view.View.VISIBLE) {
+            return
+        }
+
+        val sd = ctx.sdCardPath.trimEnd('/')
+        val onSd = sd.isNotEmpty() && (currentPath == sd || currentPath.startsWith("$sd/"))
+        val primary = ctx.getProperPrimaryColor()
+        val contrast = primary.getContrastColor()
+        val text = ctx.getProperTextColor()
+        binding.apply {
+            volumeInternalButton.setBackgroundColor(if (onSd) android.graphics.Color.TRANSPARENT else primary)
+            volumeInternalButton.setTextColor(if (onSd) text else contrast)
+            volumeSdButton.setBackgroundColor(if (onSd) primary else android.graphics.Color.TRANSPARENT)
+            volumeSdButton.setTextColor(if (onSd) contrast else text)
+        }
     }
 
     private fun getScrollState() = getRecyclerLayoutManager().onSaveInstanceState()
