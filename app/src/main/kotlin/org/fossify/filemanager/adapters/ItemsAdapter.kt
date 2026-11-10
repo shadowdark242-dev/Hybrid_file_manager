@@ -90,6 +90,7 @@ import org.fossify.commons.models.RadioItem
 import org.fossify.commons.views.MyRecyclerView
 import org.fossify.filemanager.R
 import org.fossify.filemanager.activities.MainActivity
+import org.fossify.filemanager.helpers.ApkIconCache
 import org.fossify.filemanager.helpers.FOLDER_COLOR
 import org.fossify.filemanager.activities.SimpleActivity
 import org.fossify.filemanager.activities.SplashActivity
@@ -1152,19 +1153,19 @@ class ItemsAdapter(
     }
 
     private fun getImagePathToLoad(path: String): Any {
-        var itemToLoad = if (path.endsWith(".apk", true)) {
-            val packageInfo =
-                activity.packageManager.getPackageArchiveInfo(path, PackageManager.GET_ACTIVITIES)
-            val appInfo = packageInfo?.applicationInfo
-            if (appInfo != null) {
-                appInfo.sourceDir = path
-                appInfo.publicSourceDir = path
-                appInfo.loadIcon(activity.packageManager)
+        var itemToLoad: Any = path
+        if (path.endsWith(".apk", true)) {
+            val cached = ApkIconCache.getCached(activity, path)
+            if (cached != null) {
+                itemToLoad = cached.absolutePath
             } else {
-                path
+                ApkIconCache.request(activity, path) {
+                    val position = listItems.indexOfFirst { it.path == path }
+                    if (!activity.isDestroyed && position >= 0) {
+                        notifyItemChanged(position)
+                    }
+                }
             }
-        } else {
-            path
         }
 
         if (activity.isRestrictedSAFOnlyRoot(path)) {

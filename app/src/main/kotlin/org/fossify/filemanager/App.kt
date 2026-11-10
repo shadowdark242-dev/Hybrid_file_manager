@@ -3,6 +3,7 @@ package org.fossify.filemanager
 import com.github.ajalt.reprint.core.Reprint
 import org.fossify.commons.FossifyApp
 import org.fossify.filemanager.extensions.config
+import org.fossify.filemanager.helpers.ApkIconCache
 import org.fossify.filemanager.helpers.applyHybridTheme
 
 class App : FossifyApp() {
@@ -12,6 +13,7 @@ class App : FossifyApp() {
         super.onCreate()
         Reprint.initialize(this)
         applyConceptTheme()
+        ApkIconCache.clear(this)
     }
 
     /** Applies the dark concept palette once; later changes from the color settings are not overridden. */
