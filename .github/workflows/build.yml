@@ -50,6 +50,7 @@ jobs:
               with:
                   name: hybrid-file-manager
                   path: app/build/outputs/apk/foss/release/*.apk
+                  retention-days: 7
 
             - name: Publish APK to the "latest" release
               if: github.ref == 'refs/heads/main'
