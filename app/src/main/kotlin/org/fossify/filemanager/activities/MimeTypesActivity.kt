@@ -121,6 +121,7 @@ class MimeTypesActivity : SimpleActivity(), ItemOperationsListener {
     }
 
     override fun deleteFiles(files: ArrayList<FileDirItem>) {
+        org.fossify.filemanager.helpers.FolderSizeCache.invalidate(files.map { it.path })
         deleteFiles(files, false) {
             if (!it) {
                 runOnUiThread {

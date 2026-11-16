@@ -86,4 +86,15 @@
     <string name="hybrid_theme">Hybrid theme</string>
     <string name="hybrid_theme_dark">Hybrid dark</string>
     <string name="hybrid_theme_light">Hybrid light</string>
+    <string name="file_operations">File operations</string>
+    <string name="deleting_title_single">Deleting \"%s\"</string>
+    <string name="deleting_title_multiple">Deleting %d items</string>
+    <string name="deleting_counting">Counting files…</string>
+    <string name="deleting_progress">%1$d of %2$d</string>
+    <string name="deleting_in_progress">Deleting…</string>
+    <string name="deleting_done">Deleted files and folders: %d</string>
+    <string name="deleting_failed">Some items could not be deleted</string>
+    <string name="deleting_cancelled">Deletion cancelled</string>
+    <string name="deleting_continues">Deletion continues in the background</string>
+    <string name="scanning_folder_sizes">Calculating folder sizes…</string>
 </resources>

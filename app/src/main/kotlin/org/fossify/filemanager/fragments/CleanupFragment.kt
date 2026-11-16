@@ -18,6 +18,7 @@ import org.fossify.commons.extensions.rescanPaths
 import org.fossify.commons.extensions.sdCardPath
 import org.fossify.commons.extensions.toast
 import org.fossify.commons.helpers.ensureBackgroundThread
+import org.fossify.filemanager.helpers.FolderSizeCache
 import org.fossify.filemanager.R
 import org.fossify.filemanager.activities.SimpleActivity
 import org.fossify.filemanager.databinding.CleanupFragmentBinding
@@ -469,6 +470,7 @@ class CleanupFragment(context: Context, attributeSet: AttributeSet) :
                 updateStatusAndButton()
                 context.toast(context.getString(R.string.cleanup_deleted, deleted.size))
             }
+            FolderSizeCache.invalidate(deleted)
             context.rescanPaths(ArrayList(deleted))
         }
     }
@@ -492,6 +494,7 @@ class CleanupFragment(context: Context, attributeSet: AttributeSet) :
                 updateStatusAndButton()
                 context.toast(context.getString(R.string.cleanup_deleted, deleted.size))
             }
+            FolderSizeCache.invalidate(deleted)
             context.rescanPaths(ArrayList(deleted))
         }
     }

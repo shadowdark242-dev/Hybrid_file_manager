@@ -25,6 +25,11 @@ import org.fossify.filemanager.helpers.RootHelpers
 import org.fossify.filemanager.interfaces.ItemOperationsListener
 import org.fossify.filemanager.models.ListItem
 import java.io.File
+import java.util.concurrent.LinkedBlockingQueue
+import java.util.concurrent.ThreadPoolExecutor
+import java.util.concurrent.TimeUnit
+import java.util.concurrent.atomic.AtomicInteger
+import org.fossify.filemanager.helpers.FolderSizeCache
 import org.fossify.filemanager.helpers.VOLUME_OTG
 import org.fossify.filemanager.helpers.getStorageButtonItems
 import org.fossify.filemanager.helpers.getStorageKeyForPath
@@ -37,6 +42,9 @@ class ItemsFragment(context: Context, attributeSet: AttributeSet) : MyViewPagerF
     private var lastSearchedText = ""
     private var scrollStates = HashMap<String, Parcelable>()
     private var zoomListener: MyRecyclerView.MyZoomListener? = null
+    private val loadGeneration = AtomicInteger()
+    // one worker per pane that goes away when idle
+    private val detailsExecutor = ThreadPoolExecutor(0, 1, 30L, TimeUnit.SECONDS, LinkedBlockingQueue())
 
     private var storedItems = ArrayList<ListItem>()
     private var itemsIgnoringSearch = ArrayList<ListItem>()
@@ -53,7 +61,10 @@ class ItemsFragment(context: Context, attributeSet: AttributeSet) : MyViewPagerF
             this.activity = activity
             binding.apply {
                 breadcrumbs.listener = this@ItemsFragment
-                itemsSwipeRefresh.setOnRefreshListener { refreshFragment() }
+                itemsSwipeRefresh.setOnRefreshListener {
+                    FolderSizeCache.invalidate(currentPath)
+                    refreshFragment()
+                }
                 itemsFab.setOnClickListener {
                     if (isCreateDocumentIntent) {
                         (activity as MainActivity).createDocumentConfirmed(currentPath)
@@ -121,34 +132,136 @@ class ItemsFragment(context: Context, attributeSet: AttributeSet) : MyViewPagerF
         scrollStates[currentPath] = getScrollState()!!
         currentPath = realPath
         showHidden = context!!.config.shouldShowHidden()
+        // any folder size scan or child count of the previous folder stops at its next step
+        val generation = loadGeneration.incrementAndGet()
         showProgressBar()
         getItems(currentPath) { originalPath, listItems ->
-            if (currentPath != originalPath) {
+            if (currentPath != originalPath || generation != loadGeneration.get()) {
                 return@getItems
             }
 
-            FileDirItem.sorting = context!!.config.getFolderSorting(currentPath)
-            listItems.sort()
+            val arranged = arrangeItems(listItems)
+            itemsIgnoringSearch = arranged
+            activity?.runOnUiThread {
+                if (generation != loadGeneration.get()) {
+                    return@runOnUiThread
+                }
 
-            if (context!!.config.getFolderViewType(currentPath) == VIEW_TYPE_GRID && listItems.none { it.isSectionTitle }) {
-                if (listItems.any { it.mIsDirectory } && listItems.any { !it.mIsDirectory }) {
-                    val firstFileIndex = listItems.indexOfFirst { !it.mIsDirectory }
-                    if (firstFileIndex != -1) {
-                        val sectionTitle = ListItem("", "", false, 0, 0, 0, false, true)
-                        listItems.add(firstFileIndex, sectionTitle)
+                (activity as? MainActivity)?.refreshMenuItems()
+                addItems(arranged, forceRefresh)
+                if (context != null && currentViewType != context!!.config.getFolderViewType(currentPath)) {
+                    setupLayoutManager()
+                }
+
+                loadFolderDetails(generation, originalPath, ArrayList(listItems))
+            }
+        }
+    }
+
+    /** Sorts the folder content and adds the grid divider and the ".." entry. */
+    private fun arrangeItems(items: ArrayList<ListItem>): ArrayList<ListItem> {
+        val listItems = ArrayList(items.filter { !it.isParentDir && !it.isGridTypeDivider })
+        FileDirItem.sorting = context!!.config.getFolderSorting(currentPath)
+        listItems.sort()
+
+        if (context!!.config.getFolderViewType(currentPath) == VIEW_TYPE_GRID && listItems.none { it.isSectionTitle }) {
+            if (listItems.any { it.mIsDirectory } && listItems.any { !it.mIsDirectory }) {
+                val firstFileIndex = listItems.indexOfFirst { !it.mIsDirectory }
+                if (firstFileIndex != -1) {
+                    val sectionTitle = ListItem("", "", false, 0, 0, 0, false, true)
+                    listItems.add(firstFileIndex, sectionTitle)
+                }
+            }
+        }
+
+        getParentDirItem(currentPath)?.let { listItems.add(0, it) }
+        return listItems
+    }
+
+    /**
+     * Loads what is slow to get after the list is already shown: child counts (list view) and, when sorting by
+     * size, the sizes of folders that are not cached yet. Runs on one worker thread per pane and stops as soon as
+     * another folder is opened, so it never holds up reading folders.
+     */
+    private fun loadFolderDetails(generation: Int, path: String, items: ArrayList<ListItem>) {
+        val ctx = context ?: return
+        val isSortingBySize = ctx.config.getFolderSorting(path) and SORT_BY_SIZE != 0
+        val needsChildCount = ctx.config.getFolderViewType(path) == VIEW_TYPE_LIST
+        if (ctx.isPathOnOTG(path) || ctx.isRestrictedSAFOnlyRoot(path)) {
+            // these are read through the system document APIs, which already filled in what they can
+            hideProgressBar()
+            return
+        }
+
+        val folders = items.filter { it.mIsDirectory && !it.isParentDir && !it.isSectionTitle }
+        val unsized = if (isSortingBySize) folders.filter { FolderSizeCache.get(it.mPath, showHidden) == null } else emptyList()
+        if (unsized.isEmpty() && (!needsChildCount || folders.isEmpty())) {
+            hideProgressBar()
+            return
+        }
+
+        if (unsized.isEmpty()) {
+            hideProgressBar()
+        }
+
+        val isCancelled = { generation != loadGeneration.get() }
+        val useRoot = ctx.config.enableRootAccess && ctx.isPathOnRoot(path) && !ctx.isPathOnOTG(path)
+        val hidden = showHidden
+        detailsExecutor.execute {
+            if (isCancelled()) return@execute
+
+            if (isSortingBySize && unsized.isNotEmpty()) {
+                val root = if (useRoot) activity?.let { RootHelpers(it) } else null
+                for (folder in unsized) {
+                    if (isCancelled()) return@execute
+                    val size = if (root != null) {
+                        root.getFolderSize(folder.mPath).also { FolderSizeCache.put(folder.mPath, hidden, it) }
+                    } else {
+                        FolderSizeCache.computeSize(File(folder.mPath), hidden, isCancelled) ?: return@execute
+                    }
+
+                    folder.size = size
+                    folder.mSize = size
+                    activity?.runOnUiThread {
+                        if (!isCancelled()) {
+                            getRecyclerAdapter()?.updateFolderSize(folder.mPath, size)
+                        }
+                    }
+                }
+
+                activity?.runOnUiThread {
+                    if (isCancelled() || context == null) return@runOnUiThread
+                    hideProgressBar()
+                    if (lastSearchedText.isEmpty() && getRecyclerAdapter()?.hasSelection() != true) {
+                        val resorted = arrangeItems(itemsIgnoringSearch)
+                        itemsIgnoringSearch = resorted
+                        storedItems = resorted
+                        getRecyclerAdapter()?.updateItems(resorted)
                     }
                 }
             }
 
-            getParentDirItem(currentPath)?.let { listItems.add(0, it) }
-            itemsIgnoringSearch = listItems
-            activity?.runOnUiThread {
-                (activity as? MainActivity)?.refreshMenuItems()
-                addItems(listItems, forceRefresh)
-                if (context != null && currentViewType != context!!.config.getFolderViewType(currentPath)) {
-                    setupLayoutManager()
+            if (needsChildCount && folders.isNotEmpty()) {
+                if (useRoot) {
+                    val counts = activity?.let { RootHelpers(it).getChildCounts(path, hidden) } ?: return@execute
+                    if (isCancelled()) return@execute
+                    activity?.runOnUiThread {
+                        if (isCancelled()) return@runOnUiThread
+                        counts.forEach { (folderPath, count) ->
+                            if (count != 0) getRecyclerAdapter()?.updateChildCount(folderPath, count)
+                        }
+                    }
+                } else {
+                    for (folder in folders) {
+                        if (isCancelled()) return@execute
+                        val count = File(folder.mPath).list()?.count { hidden || !it.startsWith('.') } ?: 0
+                        if (count != 0) {
+                            activity?.runOnUiThread {
+                                if (!isCancelled()) getRecyclerAdapter()?.updateChildCount(folder.mPath, count)
+                            }
+                        }
+                    }
                 }
-                hideProgressBar()
             }
         }
     }
@@ -266,7 +379,13 @@ class ItemsFragment(context: Context, attributeSet: AttributeSet) : MyViewPagerF
                 } else if (!config.enableRootAccess || !context!!.isPathOnRoot(path)) {
                     getRegularItemsOf(path, callback)
                 } else {
-                    RootHelpers(activity!!).getFiles(path, callback)
+                    val items = RootHelpers(activity!!).listFolder(path, config.shouldShowHidden())
+                    items.forEach { item ->
+                        if (item.mIsDirectory) {
+                            FolderSizeCache.get(item.mPath, config.shouldShowHidden())?.let { item.size = it; item.mSize = it }
+                        }
+                    }
+                    callback(path, items)
                 }
             }
         }
@@ -280,12 +399,10 @@ class ItemsFragment(context: Context, attributeSet: AttributeSet) : MyViewPagerF
             return
         }
 
-        val isSortingBySize = context!!.config.getFolderSorting(currentPath) and SORT_BY_SIZE != 0
-        val getProperChildCount = context!!.config.getFolderViewType(currentPath) == VIEW_TYPE_LIST
         val lastModifieds = context!!.getFolderLastModifieds(path)
 
         for (file in files) {
-            val listItem = getListItemFromFile(file, isSortingBySize, lastModifieds, false)
+            val listItem = getListItemFromFile(file, lastModifieds)
             if (listItem != null) {
                 if (wantedMimeTypes.any { isProperMimeType(it, file.absolutePath, file.isDirectory) }) {
                     items.add(listItem)
@@ -293,24 +410,12 @@ class ItemsFragment(context: Context, attributeSet: AttributeSet) : MyViewPagerF
             }
         }
 
-        // send out the initial item list asap, get proper child count asynchronously as it can be slow
+        // folder sizes and child counts are loaded afterwards by loadFolderDetails, they can be slow
         callback(path, items)
-
-        if (getProperChildCount) {
-            items.filter { it.mIsDirectory }.forEach {
-                if (context != null) {
-                    val childrenCount = it.getDirectChildrenCount(activity as BaseSimpleActivity, showHidden)
-                    if (childrenCount != 0) {
-                        activity?.runOnUiThread {
-                            getRecyclerAdapter()?.updateChildCount(it.mPath, childrenCount)
-                        }
-                    }
-                }
-            }
-        }
     }
 
-    private fun getListItemFromFile(file: File, isSortingBySize: Boolean, lastModifieds: HashMap<String, Long>, getProperChildCount: Boolean): ListItem? {
+    /** Folder sizes come only from [FolderSizeCache] here; scanning is left to [loadFolderDetails]. */
+    private fun getListItemFromFile(file: File, lastModifieds: HashMap<String, Long>): ListItem? {
         val curPath = file.absolutePath
         val curName = file.name
         if (!showHidden && curName.startsWith(".")) {
@@ -319,13 +424,8 @@ class ItemsFragment(context: Context, attributeSet: AttributeSet) : MyViewPagerF
 
         var lastModified = lastModifieds.remove(curPath)
         val isDirectory = file.isDirectory
-        val children = if (isDirectory && getProperChildCount) file.getDirectChildrenCount(context, showHidden) else 0
         val size = if (isDirectory) {
-            if (isSortingBySize) {
-                file.getProperSize(showHidden)
-            } else {
-                0L
-            }
+            FolderSizeCache.get(curPath, showHidden) ?: 0L
         } else {
             file.length()
         }
@@ -334,7 +434,7 @@ class ItemsFragment(context: Context, attributeSet: AttributeSet) : MyViewPagerF
             lastModified = file.lastModified()
         }
 
-        return ListItem(curPath, curName, isDirectory, children, size, lastModified, false, false)
+        return ListItem(curPath, curName, isDirectory, 0, size, lastModified, false, false)
     }
 
     private fun getListItemsFromFileDirItems(fileDirItems: ArrayList<FileDirItem>): ArrayList<ListItem> {
@@ -439,9 +539,7 @@ class ItemsFragment(context: Context, attributeSet: AttributeSet) : MyViewPagerF
         }
 
         val normalizedText = text.normalizeString()
-        val sorting = context!!.config.getFolderSorting(path)
         FileDirItem.sorting = context!!.config.getFolderSorting(currentPath)
-        val isSortingBySize = sorting and SORT_BY_SIZE != 0
         File(path).listFiles()?.sortedBy { it.isDirectory }?.forEach {
             if (!showHidden && it.isHidden) {
                 return@forEach
@@ -449,7 +547,7 @@ class ItemsFragment(context: Context, attributeSet: AttributeSet) : MyViewPagerF
 
             if (it.isDirectory) {
                 if (it.name.normalizeString().contains(normalizedText, true)) {
-                    val fileDirItem = getListItemFromFile(it, isSortingBySize, HashMap(), false)
+                    val fileDirItem = getListItemFromFile(it, HashMap())
                     if (fileDirItem != null) {
                         files.add(fileDirItem)
                     }
@@ -458,7 +556,7 @@ class ItemsFragment(context: Context, attributeSet: AttributeSet) : MyViewPagerF
                 files.addAll(searchFiles(text, it.absolutePath))
             } else {
                 if (it.name.normalizeString().contains(normalizedText, true)) {
-                    val fileDirItem = getListItemFromFile(it, isSortingBySize, HashMap(), false)
+                    val fileDirItem = getListItemFromFile(it, HashMap())
                     if (fileDirItem != null) {
                         files.add(fileDirItem)
                     }

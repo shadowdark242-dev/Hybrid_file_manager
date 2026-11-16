@@ -3,17 +3,17 @@ package org.fossify.filemanager.helpers
 import android.app.Activity
 import com.stericson.RootShell.execution.Command
 import com.stericson.RootTools.RootTools
-import org.fossify.commons.extensions.areDigitsOnly
 import org.fossify.commons.extensions.showErrorToast
 import org.fossify.commons.extensions.toast
-import org.fossify.commons.helpers.SORT_BY_SIZE
 import org.fossify.commons.models.FileDirItem
 import org.fossify.filemanager.R
-import org.fossify.filemanager.extensions.config
 import org.fossify.filemanager.models.ListItem
-import java.io.File
 
 class RootHelpers(val activity: Activity) {
+    companion object {
+        private val PSEUDO_FILE_SYSTEMS = listOf("/proc", "/sys", "/dev", "/acct")
+    }
+
     fun askRootIfNeeded(callback: (success: Boolean) -> Unit) {
         val cmd = "ls -lA"
         val command = object : Command(0, cmd) {
@@ -31,127 +31,70 @@ class RootHelpers(val activity: Activity) {
         }
     }
 
-    fun getFiles(path: String, callback: (originalPath: String, listItems: ArrayList<ListItem>) -> Unit) {
-        getFullLines(path) {
-            val fullLines = it
+    /**
+     * Lists [path] through the root shell. Blocking, call it from a background thread.
+     * Sizes of files are always filled in; folder sizes and child counts are loaded separately.
+     */
+    fun listFolder(path: String, showHidden: Boolean): ArrayList<ListItem> {
+        val folder = path.trimEnd('/').ifEmpty { "/" }
+        val q = RootShell.quote(folder)
+        val format = "%f|%s|%Y|%n"
+        val cmd = "cd $q && { find . -mindepth 1 -maxdepth 1 -exec stat -L -c 'A|$format' {} + ; " +
+            "find . -mindepth 1 -maxdepth 1 -type l -exec stat -c 'B|$format' {} + ; }"
+        val lines = RootShell.listing.run(cmd, 20_000L) ?: return ArrayList()
 
-            val files = ArrayList<ListItem>()
-            val hiddenArgument = if (activity.config.shouldShowHidden()) "-A " else ""
-            val cmd = "ls $hiddenArgument$path"
-
-            val command = object : Command(0, cmd) {
-                override fun commandOutput(id: Int, line: String) {
-                    val file = File(path, line)
-                    val fullLine = fullLines.firstOrNull { it.endsWith(" $line") }
-                    val isDirectory = fullLine?.startsWith('d') ?: file.isDirectory
-                    val fileDirItem = ListItem(file.absolutePath, line, isDirectory, 0, 0, 0, false, false)
-                    files.add(fileDirItem)
-                    super.commandOutput(id, line)
-                }
-
-                override fun commandCompleted(id: Int, exitcode: Int) {
-                    if (files.isEmpty()) {
-                        callback(path, files)
-                    } else {
-                        getChildrenCount(files, path, callback)
-                    }
-
-                    super.commandCompleted(id, exitcode)
-                }
+        val resolved = LinkedHashMap<String, ListItem>()
+        val links = HashMap<String, ListItem>()
+        for (line in lines) {
+            val parts = line.split('|', limit = 5)
+            if (parts.size < 5) {
+                continue
             }
 
-            runCommand(command)
+            val name = parts[4].removePrefix("./")
+            if (name.isEmpty() || name.contains('/') || (!showHidden && name.startsWith('.'))) {
+                continue
+            }
+
+            val mode = parts[1].toIntOrNull(16) ?: continue
+            val isDirectory = mode and 0xF000 == 0x4000
+            val size = if (isDirectory) 0L else parts[2].toLongOrNull() ?: 0L
+            val modified = (parts[3].toLongOrNull() ?: 0L) * 1000L
+            val fullPath = if (folder == "/") "/$name" else "$folder/$name"
+            val item = ListItem(fullPath, name, isDirectory, 0, size, modified, false, false)
+            if (parts[0] == "A") resolved[name] = item else links[name] = item
         }
+
+        // broken links can't be resolved, show them as plain entries
+        links.forEach { (name, item) -> resolved.putIfAbsent(name, item) }
+        return ArrayList(resolved.values)
     }
 
-    private fun getFullLines(path: String, callback: (ArrayList<String>) -> Unit) {
-        val fullLines = ArrayList<String>()
-        val hiddenArgument = if (activity.config.shouldShowHidden()) "-Al " else "-l "
-        val cmd = "ls $hiddenArgument$path"
-
-        val command = object : Command(0, cmd) {
-            override fun commandOutput(id: Int, line: String) {
-                fullLines.add(line)
-                super.commandOutput(id, line)
-            }
-
-            override fun commandCompleted(id: Int, exitcode: Int) {
-                callback(fullLines)
-                super.commandCompleted(id, exitcode)
-            }
+    /** Number of entries in every sub-folder of [path], as folder path to count. Blocking. */
+    fun getChildCounts(path: String, showHidden: Boolean): Map<String, Int> {
+        val folder = path.trimEnd('/').ifEmpty { "/" }
+        val ls = if (showHidden) "ls -A" else "ls"
+        val cmd = "cd ${RootShell.quote(folder)} && find . -mindepth 1 -maxdepth 1 -exec sh -c " +
+            "'for d; do [ -d \"\$d\" ] && echo \"\$($ls \"\$d\" | wc -l)|\$d\"; done' sh {} +"
+        val lines = RootShell.background.run(cmd, 30_000L) ?: return emptyMap()
+        val counts = HashMap<String, Int>()
+        for (line in lines) {
+            val count = line.substringBefore('|').trim().toIntOrNull() ?: continue
+            val name = line.substringAfter('|').removePrefix("./")
+            counts[if (folder == "/") "/$name" else "$folder/$name"] = count
         }
-
-        runCommand(command)
+        return counts
     }
 
-    private fun getChildrenCount(files: ArrayList<ListItem>, path: String, callback: (originalPath: String, listItems: ArrayList<ListItem>) -> Unit) {
-        val hiddenArgument = if (activity.config.shouldShowHidden()) "-A " else ""
-        var cmd = ""
-        files.filter { it.isDirectory }.forEach {
-            cmd += "ls $hiddenArgument${it.path} |wc -l;"
-        }
-        cmd = cmd.trimEnd(';') + " | cat"
-
-        val lines = ArrayList<String>()
-        val command = object : Command(0, cmd) {
-            override fun commandOutput(id: Int, line: String) {
-                lines.add(line)
-                super.commandOutput(id, line)
-            }
-
-            override fun commandCompleted(id: Int, exitcode: Int) {
-                files.filter { it.isDirectory }.forEachIndexed { index, fileDirItem ->
-                    val childrenCount = lines[index]
-                    if (childrenCount.areDigitsOnly()) {
-                        fileDirItem.children = childrenCount.toInt()
-                    }
-                }
-
-                if (activity.config.getFolderSorting(path) and SORT_BY_SIZE == 0) {
-                    callback(path, files)
-                } else {
-                    getFileSizes(files, path, callback)
-                }
-                super.commandCompleted(id, exitcode)
-            }
+    /** Size of the folder at [path] in bytes, without crossing into other file systems. Blocking. */
+    fun getFolderSize(path: String): Long {
+        if (PSEUDO_FILE_SYSTEMS.any { path == it || path.startsWith("$it/") }) {
+            return 0L
         }
 
-        runCommand(command)
-    }
-
-    private fun getFileSizes(files: ArrayList<ListItem>, path: String, callback: (originalPath: String, listItems: ArrayList<ListItem>) -> Unit) {
-        var cmd = ""
-        files.filter { !it.isDirectory }.forEach {
-            cmd += "stat -t ${it.path};"
-        }
-
-        val lines = ArrayList<String>()
-        val command = object : Command(0, cmd) {
-            override fun commandOutput(id: Int, line: String) {
-                lines.add(line)
-                super.commandOutput(id, line)
-            }
-
-            override fun commandCompleted(id: Int, exitcode: Int) {
-                files.filter { !it.isDirectory }.forEachIndexed { index, fileDirItem ->
-                    var line = lines[index]
-                    if (line.isNotEmpty() && line != "0") {
-                        if (line.length >= fileDirItem.path.length) {
-                            line = line.substring(fileDirItem.path.length).trim()
-                            val size = line.split(" ")[0]
-                            if (size.areDigitsOnly()) {
-                                fileDirItem.size = size.toLong()
-                            }
-                        }
-                    }
-                }
-
-                callback(path, files)
-                super.commandCompleted(id, exitcode)
-            }
-        }
-
-        runCommand(command)
+        val line = RootShell.background.run("du -skx ${RootShell.quote(path)}", 180_000L)?.lastOrNull() ?: return 0L
+        val kb = line.trim().split(Regex("\\s+")).firstOrNull()?.toLongOrNull() ?: return 0L
+        return kb * 1024L
     }
 
     private fun runCommand(command: Command) {
@@ -246,28 +189,6 @@ class RootHelpers(val activity: Activity) {
         runCommand(command)
     }
 
-    fun deleteFiles(fileDirItems: ArrayList<FileDirItem>) {
-        if (!RootTools.isRootAvailable()) {
-            activity.toast(R.string.rooted_device_only)
-            return
-        }
-
-        tryMountAsRW(fileDirItems.first().path) {
-            fileDirItems.forEach {
-                val targetPath = it.path.trim('/')
-                if (targetPath.isEmpty()) {
-                    return@forEach
-                }
-
-                val mainCommand = if (it.isDirectory) "rm -rf" else "rm"
-                val cmd = "$mainCommand \"/$targetPath\""
-                val command = object : Command(0, cmd) {}
-
-                runCommand(command)
-            }
-        }
-    }
-
     fun copyMoveFiles(fileDirItems: ArrayList<FileDirItem>, destination: String, isCopyOperation: Boolean, successes: Int = 0, callback: (Int) -> Unit) {
         if (!RootTools.isRootAvailable()) {
             activity.toast(R.string.rooted_device_only)
@@ -282,16 +203,26 @@ class RootHelpers(val activity: Activity) {
         }
 
         val cmd = "$mainCommand \"${fileDirItem.path}\" \"$destination\""
-        val command = object : Command(0, cmd) {
+        // no timeout: copying a big folder can take much longer than RootTools' default 20 seconds
+        val command = object : Command(0, 0, cmd) {
             override fun commandCompleted(id: Int, exitcode: Int) {
-                val newSuccesses = successes + (if (exitcode == 0) 1 else 0)
+                next(exitcode == 0)
+                super.commandCompleted(id, exitcode)
+            }
+
+            override fun commandTerminated(id: Int, reason: String?) {
+                next(false)
+                super.commandTerminated(id, reason)
+            }
+
+            private fun next(success: Boolean) {
+                val newSuccesses = successes + (if (success) 1 else 0)
                 if (fileDirItems.size == 1) {
                     callback(newSuccesses)
                 } else {
                     fileDirItems.removeAt(0)
                     copyMoveFiles(fileDirItems, destination, isCopyOperation, newSuccesses, callback)
                 }
-                super.commandCompleted(id, exitcode)
             }
         }
         runCommand(command)

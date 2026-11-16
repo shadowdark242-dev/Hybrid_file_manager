@@ -102,6 +102,7 @@ import org.fossify.filemanager.databinding.ItemSectionBinding
 import org.fossify.filemanager.dialogs.CompressAsDialog
 import org.fossify.filemanager.extensions.config
 import org.fossify.filemanager.extensions.isPathOnRoot
+import org.fossify.filemanager.helpers.FolderSizeCache
 import org.fossify.filemanager.extensions.isZipFile
 import org.fossify.filemanager.extensions.setAs
 import org.fossify.filemanager.extensions.setLastModified
@@ -542,6 +543,8 @@ class ItemsAdapter(
         isCopyOperation: Boolean
     ) {
         val firstFile = files[0]
+        val touchedPaths = files.map { it.path } + destination
+        FolderSizeCache.invalidate(touchedPaths)
         if (activity.isPathOnRoot(destination) || activity.isPathOnRoot(firstFile.path)) {
             copyMoveRootItems(files, destination, isCopyOperation)
         } else {
@@ -553,6 +556,7 @@ class ItemsAdapter(
                 copyPhotoVideoOnly = false,
                 copyHidden = config.shouldShowHidden()
             ) {
+                FolderSizeCache.invalidate(touchedPaths)
                 (activity as? MainActivity)?.refreshOtherPane(listener)
                 if (!isCopyOperation) {
                     files.forEach { sourceFileDir ->
@@ -605,7 +609,9 @@ class ItemsAdapter(
         activity.toast(R.string.copying)
         ensureBackgroundThread {
             val fileCnt = files.size
+            val touchedPaths = files.map { it.path } + destinationPath
             RootHelpers(activity).copyMoveFiles(files, destinationPath, isCopyOperation) {
+                FolderSizeCache.invalidate(touchedPaths)
                 when (it) {
                     fileCnt -> activity.toast(R.string.copying_success)
                     0 -> activity.toast(R.string.copy_failed)
@@ -1031,6 +1037,16 @@ class ItemsAdapter(
         item.children = count
         notifyItemChanged(position, Unit)
     }
+
+    fun updateFolderSize(path: String, size: Long) {
+        val position = getItemKeyPosition(path.hashCode())
+        val item = listItems.getOrNull(position) ?: return
+        item.size = size
+        item.mSize = size
+        notifyItemChanged(position, Unit)
+    }
+
+    fun hasSelection() = selectedKeys.isNotEmpty()
 
     fun isASectionTitle(position: Int) = listItems.getOrNull(position)?.isSectionTitle ?: false
 

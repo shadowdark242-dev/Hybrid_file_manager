@@ -103,6 +103,10 @@ class MainActivity : SimpleActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        if (savedInstanceState == null) {
+            // a fresh start of the app scans folder sizes again
+            org.fossify.filemanager.helpers.FolderSizeCache.clear()
+        }
         setContentView(binding.root)
         appLaunched(BuildConfig.APPLICATION_ID)
         setupOptionsMenu()

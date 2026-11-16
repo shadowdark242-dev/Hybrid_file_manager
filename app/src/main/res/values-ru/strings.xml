@@ -70,4 +70,15 @@
     <string name="hybrid_theme">Тема Hybrid</string>
     <string name="hybrid_theme_dark">Hybrid тёмная</string>
     <string name="hybrid_theme_light">Hybrid светлая</string>
+    <string name="file_operations">Операции с файлами</string>
+    <string name="deleting_title_single">Удаление «%s»</string>
+    <string name="deleting_title_multiple">Удаление объектов: %d</string>
+    <string name="deleting_counting">Подсчёт файлов…</string>
+    <string name="deleting_progress">%1$d из %2$d</string>
+    <string name="deleting_in_progress">Удаление…</string>
+    <string name="deleting_done">Удалено файлов и папок: %d</string>
+    <string name="deleting_failed">Часть файлов удалить не удалось</string>
+    <string name="deleting_cancelled">Удаление отменено</string>
+    <string name="deleting_continues">Удаление продолжается в фоне</string>
+    <string name="scanning_folder_sizes">Подсчёт размеров папок…</string>
 </resources>

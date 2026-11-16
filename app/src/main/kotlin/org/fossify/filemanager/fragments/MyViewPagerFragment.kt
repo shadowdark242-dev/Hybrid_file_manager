@@ -16,7 +16,9 @@ import org.fossify.filemanager.databinding.RecentsFragmentBinding
 import org.fossify.filemanager.databinding.StorageFragmentBinding
 import org.fossify.filemanager.extensions.isPathOnRoot
 import org.fossify.filemanager.extensions.tryOpenPathIntent
-import org.fossify.filemanager.helpers.RootHelpers
+import org.fossify.filemanager.dialogs.DeleteProgressDialog
+import org.fossify.filemanager.helpers.FolderSizeCache
+import org.fossify.filemanager.services.DeleteService
 
 abstract class MyViewPagerFragment<BINDING : MyViewPagerFragment.InnerBinding>(context: Context, attributeSet: AttributeSet) :
     RelativeLayout(context, attributeSet) {
@@ -59,19 +61,53 @@ abstract class MyViewPagerFragment<BINDING : MyViewPagerFragment.InnerBinding>(c
 
     fun handleFileDeleting(files: ArrayList<FileDirItem>, hasFolder: Boolean) {
         val firstPath = files.firstOrNull()?.path
-        if (firstPath == null || firstPath.isEmpty() || context == null) {
+        val activity = activity
+        if (firstPath == null || firstPath.isEmpty() || context == null || activity == null) {
             return
         }
 
-        if (context!!.isPathOnRoot(firstPath)) {
-            RootHelpers(activity!!).deleteFiles(files)
-        } else {
-            (activity as SimpleActivity).deleteFiles(files, hasFolder) {
-                if (!it) {
-                    activity!!.runOnUiThread {
-                        activity!!.toast(R.string.unknown_error_occurred)
-                    }
+        // OTG and the SAF-only Android/data folders can only be deleted through the system document APIs
+        val (systemOnly, direct) = files.partition { activity.isPathOnOTG(it.path) || activity.isRestrictedSAFOnlyRoot(it.path) }
+        if (systemOnly.isNotEmpty()) {
+            deleteWithSystemApi(ArrayList(systemOnly), hasFolder)
+        }
+
+        if (direct.isEmpty()) {
+            return
+        }
+
+        val useRoot = context!!.isPathOnRoot(firstPath)
+        activity.handleNotificationPermission { }
+        val progressDialog = DeleteProgressDialog(activity)
+        DeleteService.enqueue(activity, direct.map { it.path }, useRoot) { result ->
+            progressDialog.dismiss()
+            val ctx = this.activity ?: return@enqueue
+            when {
+                result.cancelled -> ctx.toast(R.string.deleting_cancelled)
+                result.failedPaths.isEmpty() -> ctx.toast(ctx.getString(R.string.deleting_done, result.deletedCount))
+                useRoot -> ctx.toast(R.string.deleting_failed)
+                else -> {
+                    // let the system APIs try what plain file access could not delete (e.g. SD card on older Android)
+                    val leftovers = direct.filter { it.path in result.failedPaths }
+                    deleteWithSystemApi(ArrayList(leftovers), hasFolder)
                 }
+            }
+
+            refreshFragment()
+            (ctx as? MainActivity)?.refreshOtherPane(this)
+        }
+    }
+
+    private fun deleteWithSystemApi(files: ArrayList<FileDirItem>, hasFolder: Boolean) {
+        FolderSizeCache.invalidate(files.map { it.path })
+        (activity as SimpleActivity).deleteFiles(files, hasFolder) {
+            FolderSizeCache.invalidate(files.map { it.path })
+            activity?.runOnUiThread {
+                if (!it) {
+                    activity?.toast(R.string.unknown_error_occurred)
+                }
+                refreshFragment()
+                (activity as? MainActivity)?.refreshOtherPane(this)
             }
         }
     }
