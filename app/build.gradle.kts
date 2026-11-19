@@ -94,6 +94,8 @@ android {
         val currentJavaVersionFromLibs = JavaVersion.valueOf(libs.versions.app.build.javaVersion.get())
         sourceCompatibility = currentJavaVersionFromLibs
         targetCompatibility = currentJavaVersionFromLibs
+        // newer Java APIs used by the libraries also work on Android 6-7
+        isCoreLibraryDesugaringEnabled = true
     }
 
     dependenciesInfo {
@@ -144,5 +146,6 @@ dependencies {
     implementation(libs.gestureviews)
     implementation(libs.autofittextview)
     implementation(libs.zip4j)
+    coreLibraryDesugaring(libs.desugar.jdk.libs)
     detektPlugins(libs.compose.detekt)
 }

@@ -12,6 +12,7 @@ import org.fossify.filemanager.activities.FolderUsageActivity
 import android.os.Handler
 import android.os.Looper
 import android.os.storage.StorageManager
+import android.os.Build
 import android.provider.MediaStore
 import android.provider.Settings
 import android.util.AttributeSet
@@ -50,6 +51,9 @@ import org.fossify.filemanager.databinding.ItemStorageVolumeBinding
 import org.fossify.filemanager.databinding.StorageFragmentBinding
 import org.fossify.filemanager.extensions.config
 import org.fossify.filemanager.extensions.getAllVolumeNames
+import org.fossify.filemanager.extensions.getLegacyVolumeUuid
+import org.fossify.filemanager.extensions.volumeFilesUri
+import org.fossify.filemanager.extensions.volumeSelection
 import org.fossify.filemanager.helpers.ARCHIVES
 import org.fossify.filemanager.helpers.AUDIO
 import org.fossify.filemanager.helpers.DOCUMENTS
@@ -245,7 +249,8 @@ class StorageFragment(
     }
 
     private fun getSizesByMimeType(volumeName: String): HashMap<String, Long> {
-        val uri = MediaStore.Files.getContentUri(volumeName)
+        val uri = context.volumeFilesUri(volumeName)
+        val volumeFilter = context.volumeSelection(volumeName)
         val projection = arrayOf(
             MediaStore.Files.FileColumns.SIZE,
             MediaStore.Files.FileColumns.MIME_TYPE,
@@ -259,7 +264,7 @@ class StorageFragment(
         var archivesSize = 0L
         var othersSize = 0L
         try {
-            context.queryCursor(uri, projection) { cursor ->
+            context.queryCursor(uri, projection, volumeFilter?.first, volumeFilter?.second) { cursor ->
                 try {
                     val mimeType =
                         cursor.getStringValue(MediaStore.Files.FileColumns.MIME_TYPE)?.lowercase(Locale.getDefault())
@@ -311,21 +316,37 @@ class StorageFragment(
         val externalDirs = context.getExternalFilesDirs(null)
         val storageManager = context.getSystemService(AppCompatActivity.STORAGE_SERVICE) as StorageManager
 
-        externalDirs.forEach { file ->
+        externalDirs.forEachIndexed { index, file ->
+            if (file == null) return@forEachIndexed
             val volumeName: String
             val totalStorageSpace: Long
             val freeStorageSpace: Long
-            val storageVolume = storageManager.getStorageVolume(file) ?: return
-            if (storageVolume.isPrimary) {
+            val isPrimary: Boolean
+            val uuidName: String?
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
+                val storageVolume = storageManager.getStorageVolume(file) ?: return
+                isPrimary = storageVolume.isPrimary
+                uuidName = storageVolume.uuid?.lowercase(Locale.US)
+            } else {
+                isPrimary = index == 0
+                uuidName = getLegacyVolumeUuid(file.absolutePath)
+            }
+
+            if (isPrimary) {
                 // internal storage
                 volumeName = PRIMARY_VOLUME_NAME
-                val storageStatsManager =
-                    context.getSystemService(AppCompatActivity.STORAGE_STATS_SERVICE) as StorageStatsManager
-                val uuid = StorageManager.UUID_DEFAULT
-                totalStorageSpace = storageStatsManager.getTotalBytes(uuid)
-                freeStorageSpace = storageStatsManager.getFreeBytes(uuid)
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                    val storageStatsManager =
+                        context.getSystemService(AppCompatActivity.STORAGE_STATS_SERVICE) as StorageStatsManager
+                    val uuid = StorageManager.UUID_DEFAULT
+                    totalStorageSpace = storageStatsManager.getTotalBytes(uuid)
+                    freeStorageSpace = storageStatsManager.getFreeBytes(uuid)
+                } else {
+                    totalStorageSpace = file.totalSpace
+                    freeStorageSpace = file.freeSpace
+                }
             } else {
-                volumeName = storageVolume.uuid!!.lowercase(Locale.US)
+                volumeName = uuidName ?: return@forEachIndexed
                 totalStorageSpace = file.totalSpace
                 freeStorageSpace = file.freeSpace
             }
@@ -438,7 +459,8 @@ class StorageFragment(
     private fun getAllFiles(volumeName: String): ArrayList<FileDirItem> {
         val fileDirItems = ArrayList<FileDirItem>()
         val showHidden = context?.config?.shouldShowHidden() ?: return fileDirItems
-        val uri = MediaStore.Files.getContentUri(volumeName)
+        val uri = context!!.volumeFilesUri(volumeName)
+        val volumeFilter = context!!.volumeSelection(volumeName)
         val projection = arrayOf(
             MediaStore.Files.FileColumns.DATA,
             MediaStore.Files.FileColumns.DISPLAY_NAME,
@@ -447,12 +469,22 @@ class StorageFragment(
         )
 
         try {
-            val queryArgs = bundleOf(
-                ContentResolver.QUERY_ARG_SORT_COLUMNS to arrayOf(MediaStore.Files.FileColumns.DATE_MODIFIED),
-                ContentResolver.QUERY_ARG_SORT_DIRECTION to ContentResolver.QUERY_SORT_DIRECTION_DESCENDING
-            )
+            val cursor = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                val queryArgs = bundleOf(
+                    ContentResolver.QUERY_ARG_SORT_COLUMNS to arrayOf(MediaStore.Files.FileColumns.DATE_MODIFIED),
+                    ContentResolver.QUERY_ARG_SORT_DIRECTION to ContentResolver.QUERY_SORT_DIRECTION_DESCENDING
+                )
+                volumeFilter?.let {
+                    queryArgs.putString(ContentResolver.QUERY_ARG_SQL_SELECTION, it.first)
+                    queryArgs.putStringArray(ContentResolver.QUERY_ARG_SQL_SELECTION_ARGS, it.second)
+                }
+                context?.contentResolver?.query(uri, projection, queryArgs, null)
+            } else {
+                val sortOrder = "${MediaStore.Files.FileColumns.DATE_MODIFIED} DESC"
+                context?.contentResolver?.query(uri, projection, volumeFilter?.first, volumeFilter?.second, sortOrder)
+            }
 
-            context?.contentResolver?.query(uri, projection, queryArgs, null)?.use { cursor ->
+            cursor?.use { cursor ->
                 if (cursor.moveToFirst()) {
                     do {
                         try {

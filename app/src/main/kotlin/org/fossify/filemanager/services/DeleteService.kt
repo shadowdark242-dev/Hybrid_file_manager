@@ -21,7 +21,6 @@ import androidx.core.content.ContextCompat
 import org.fossify.filemanager.R
 import org.fossify.filemanager.helpers.FolderSizeCache
 import java.io.File
-import java.nio.file.Files
 import java.util.concurrent.LinkedBlockingQueue
 
 /**
@@ -268,11 +267,7 @@ class DeleteService : Service() {
             return Result(done, failed, cancelRequested)
         }
 
-        private fun isLink(file: File) = try {
-            Files.isSymbolicLink(file.toPath())
-        } catch (e: Exception) {
-            false
-        }
+        private fun isLink(file: File) = FolderSizeCache.isSymlink(file)
 
         /** Drops the deleted path and everything below it from the media database, so galleries don't show ghosts. */
         private fun removeFromMediaStore(path: String) {

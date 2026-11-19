@@ -71,7 +71,7 @@ class RootShell private constructor() {
     }
 
     private fun ensureStarted(): Boolean {
-        if (process?.isAlive == true) {
+        if (process?.let { isRunning(it) } == true) {
             return true
         }
 
@@ -94,6 +94,14 @@ class RootShell private constructor() {
             close()
             false
         }
+    }
+
+    // Process.isAlive() needs Android 8
+    private fun isRunning(proc: Process) = try {
+        proc.exitValue()
+        false
+    } catch (e: IllegalThreadStateException) {
+        true
     }
 
     @Synchronized

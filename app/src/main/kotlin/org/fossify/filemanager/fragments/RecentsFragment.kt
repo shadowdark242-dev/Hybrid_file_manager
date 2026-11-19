@@ -3,6 +3,7 @@ package org.fossify.filemanager.fragments
 import android.content.ContentResolver
 import android.content.Context
 import android.provider.MediaStore.Files
+import android.os.Build
 import android.provider.MediaStore.Files.FileColumns
 import android.util.AttributeSet
 import androidx.core.os.bundleOf
@@ -163,13 +164,19 @@ class RecentsFragment(context: Context, attributeSet: AttributeSet) : MyViewPage
         )
 
         try {
-            val queryArgs = bundleOf(
-                ContentResolver.QUERY_ARG_LIMIT to RECENTS_LIMIT,
-                ContentResolver.QUERY_ARG_SORT_COLUMNS to arrayOf(FileColumns.DATE_MODIFIED),
-                ContentResolver.QUERY_ARG_SORT_DIRECTION to ContentResolver.QUERY_SORT_DIRECTION_DESCENDING
-            )
+            val cursor = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                val queryArgs = bundleOf(
+                    ContentResolver.QUERY_ARG_LIMIT to RECENTS_LIMIT,
+                    ContentResolver.QUERY_ARG_SORT_COLUMNS to arrayOf(FileColumns.DATE_MODIFIED),
+                    ContentResolver.QUERY_ARG_SORT_DIRECTION to ContentResolver.QUERY_SORT_DIRECTION_DESCENDING
+                )
+                context?.contentResolver?.query(uri, projection, queryArgs, null)
+            } else {
+                val sortOrder = "${FileColumns.DATE_MODIFIED} DESC LIMIT $RECENTS_LIMIT"
+                context?.contentResolver?.query(uri, projection, null, null, sortOrder)
+            }
 
-            context?.contentResolver?.query(uri, projection, queryArgs, null)?.use { cursor ->
+            cursor?.use { cursor ->
                 if (cursor.moveToFirst()) {
                     do {
                         val path = cursor.getStringValue(FileColumns.DATA)

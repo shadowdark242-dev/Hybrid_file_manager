@@ -15,12 +15,13 @@ gestureviews = "2.9.0"
 rootshell = "bc7e5d398e"
 roottools = "965c154e20"
 zip4j = "2.11.6"
+desugar = "2.1.5"
 #Gradle
 gradlePlugins-agp = "9.4.1"
 #build
 app-build-compileSDKVersion = "36"
 app-build-targetSDK = "36"
-app-build-minimumSDK = "26"
+app-build-minimumSDK = "23"
 app-build-javaVersion = "VERSION_17"
 app-build-kotlinJVMTarget = "17"
 [libraries]
@@ -36,6 +37,7 @@ autofittextview = { module = "me.grantland:autofittextview", version.ref = "auto
 gestureviews = { module = "com.alexvasilkov:gesture-views", version.ref = "gestureviews" }
 rootshell = { module = "com.github.naveensingh:RootShell", version.ref = "rootshell" }
 roottools = { module = "com.github.naveensingh:RootTools", version.ref = "roottools" }
+desugar-jdk-libs = { module = "com.android.tools:desugar_jdk_libs", version.ref = "desugar" }
 zip4j = { module = "net.lingala.zip4j:zip4j", version.ref = "zip4j" }
 [plugins]
 android = { id = "com.android.application", version.ref = "gradlePlugins-agp" }

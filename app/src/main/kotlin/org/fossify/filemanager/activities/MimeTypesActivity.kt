@@ -25,6 +25,8 @@ import org.fossify.filemanager.databinding.ActivityMimetypesBinding
 import org.fossify.filemanager.dialogs.ChangeSortingDialog
 import org.fossify.filemanager.dialogs.ChangeViewTypeDialog
 import org.fossify.filemanager.extensions.config
+import org.fossify.filemanager.extensions.volumeFilesUri
+import org.fossify.filemanager.extensions.volumeSelection
 import org.fossify.filemanager.extensions.isPathInHiddenFolder
 import org.fossify.filemanager.extensions.tryOpenPathIntent
 import org.fossify.filemanager.helpers.*
@@ -275,7 +277,8 @@ class MimeTypesActivity : SimpleActivity(), ItemOperationsListener {
     private fun getProperFileDirItems(callback: (ArrayList<FileDirItem>) -> Unit) {
         val fileDirItems = ArrayList<FileDirItem>()
         val showHidden = config.shouldShowHidden()
-        val uri = MediaStore.Files.getContentUri(currentVolume)
+        val uri = volumeFilesUri(currentVolume)
+        val volumeFilter = volumeSelection(currentVolume)
         val projection = arrayOf(
             MediaStore.Files.FileColumns.MIME_TYPE,
             MediaStore.Files.FileColumns.DATA,
@@ -285,7 +288,7 @@ class MimeTypesActivity : SimpleActivity(), ItemOperationsListener {
         )
 
         try {
-            queryCursor(uri, projection) { cursor ->
+            queryCursor(uri, projection, volumeFilter?.first, volumeFilter?.second) { cursor ->
                 try {
                     val fullMimetype = cursor.getStringValue(MediaStore.Files.FileColumns.MIME_TYPE)?.lowercase(Locale.getDefault()) ?: return@queryCursor
                     val name = cursor.getStringValue(MediaStore.Files.FileColumns.DISPLAY_NAME)

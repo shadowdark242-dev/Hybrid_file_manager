@@ -66,7 +66,9 @@ class RootHelpers(val activity: Activity) {
         }
 
         // broken links can't be resolved, show them as plain entries
-        links.forEach { (name, item) -> resolved.putIfAbsent(name, item) }
+        links.forEach { (name, item) ->
+            if (name !in resolved) resolved[name] = item
+        }
         return ArrayList(resolved.values)
     }
 

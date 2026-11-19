@@ -1,7 +1,6 @@
 package org.fossify.filemanager.helpers
 
 import java.io.File
-import java.nio.file.Files
 import java.util.concurrent.ConcurrentHashMap
 
 /**
@@ -44,6 +43,15 @@ object FolderSizeCache {
         }
     }
 
+    /** Works on every Android version, java.nio.file needs Android 8. */
+    fun isSymlink(file: File): Boolean = try {
+        val parent = file.parentFile?.canonicalFile
+        val inCanonicalParent = if (parent == null) file else File(parent, file.name)
+        inCanonicalParent.canonicalFile != inCanonicalParent.absoluteFile
+    } catch (e: Exception) {
+        false
+    }
+
     fun invalidate(vararg paths: String) = invalidate(paths.toList())
 
     /**
@@ -64,11 +72,7 @@ object FolderSizeCache {
                 return null
             }
 
-            val isLink = try {
-                Files.isSymbolicLink(child.toPath())
-            } catch (e: Exception) {
-                false
-            }
+            val isLink = isSymlink(child)
 
             if (!isLink && child.isDirectory) {
                 size += computeSize(child, countHidden, isCancelled) ?: return null

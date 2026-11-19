@@ -9,6 +9,7 @@ import android.graphics.drawable.Drawable
 import android.graphics.drawable.Icon
 import android.graphics.drawable.LayerDrawable
 import android.net.Uri
+import android.os.Build
 import android.util.TypedValue
 import android.view.LayoutInflater
 import android.view.Menu
@@ -184,7 +185,7 @@ class ItemsAdapter(
             findItem(R.id.cab_open_with).isVisible = isOneFileSelected()
             findItem(R.id.cab_open_as).isVisible = isOneFileSelected()
             findItem(R.id.cab_set_as).isVisible = isOneFileSelected()
-            findItem(R.id.cab_create_shortcut).isVisible = isOneItemSelected()
+            findItem(R.id.cab_create_shortcut).isVisible = isOneItemSelected() && Build.VERSION.SDK_INT >= Build.VERSION_CODES.O
 
             checkHideBtnVisibility(this)
         }
