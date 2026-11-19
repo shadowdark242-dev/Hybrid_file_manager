@@ -10,7 +10,7 @@ The latest build is published automatically on every push:
 
 **[HybridFileManager.apk](https://github.com/shadowdark242-dev/Hybrid_file_manager/releases/download/latest/HybridFileManager.apk)**
 
-Android 6.0+ is required. Allow installing from unknown sources when asked.
+Android 8.0+ is required. Allow installing from unknown sources when asked.
 
 ## Features
 
